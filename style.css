@@ -1387,10 +1387,10 @@ body {
 
 .eval-builder-layout {
     display: grid;
-    grid-template-columns: 280px 1fr 260px;
+    grid-template-columns: 280px 1fr;
     gap: 16px;
     padding: 16px;
-    max-width: 1600px;
+    max-width: 1400px;
     margin: 0 auto;
     min-height: calc(100vh - 76px);
 }
@@ -1402,6 +1402,7 @@ body {
     padding: 16px;
     overflow-y: auto;
     max-height: calc(100vh - 110px);
+    scroll-behavior: smooth;
 }
 
 .catalog-header {
@@ -1475,6 +1476,8 @@ body {
     border-radius: 6px;
     cursor: grab;
     transition: all var(--transition-fast);
+    width: 100%;
+    max-width: 248px;
 }
 
 .block-item:hover {
@@ -1500,11 +1503,25 @@ body {
     border-left: 3px solid #10b981;
 }
 
+/* ==============================================
+   UNIFIED BLOCK CONTENT - Single source of truth
+   Used for both bank tiles and slot tiles
+   ============================================== */
+
 .block-content {
     display: flex;
     flex-direction: column;
     gap: 6px;
     width: 100%;
+    position: relative;
+}
+
+.block-content.active {
+    padding: 10px;
+    background: var(--bg-hover);
+    border-radius: 6px;
+    width: 220px;
+    max-width: 100%;
 }
 
 .block-header {
@@ -1539,8 +1556,37 @@ body {
     line-height: 1.3;
 }
 
-/* Greyed-out parameters preview in bank */
-.block-params-preview {
+/* Remove button (only shown in active/slot mode) */
+.block-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: var(--bg-secondary);
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+}
+
+.block-remove:hover {
+    opacity: 1;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.block-remove svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Parameters section - shared styles */
+.block-params {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1549,54 +1595,52 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
-.block-params-preview .param-row {
+.block-params .param-row {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 11px;
 }
 
-.block-params-preview .param-row label {
+.block-params .param-row label {
     color: var(--text-muted);
     font-size: 10px;
     min-width: 0;
-    flex-shrink: 1;
-    opacity: 0.6;
+    flex-shrink: 0;
 }
 
-.block-params-preview .param-input {
+.block-params .param-input {
     flex: 1;
     min-width: 0;
-    padding: 3px 6px;
-    font-size: 10px;
+    padding: 4px 6px;
+    font-size: 11px;
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 3px;
-    color: var(--text-muted);
-    opacity: 0.5;
-    cursor: not-allowed;
+    color: var(--text-primary);
 }
 
-.block-params-preview .param-input:disabled {
-    background: var(--bg-primary);
+.block-params .param-input:focus {
+    outline: none;
+    border-color: var(--accent-green);
+}
+
+/* Disabled/preview state */
+.block-params .param-row.disabled label {
+    opacity: 0.5;
+}
+
+.block-params .param-row.disabled .param-input {
+    color: var(--text-muted);
     opacity: 0.4;
+    cursor: grab;
+    pointer-events: none;
+    background: var(--bg-primary);
 }
 
 .block-info {
     flex: 1;
     min-width: 0;
-}
-
-.block-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 2px;
-}
-
-.block-desc {
-    font-size: 11px;
-    color: var(--text-muted);
     line-height: 1.3;
 }
 
@@ -1767,22 +1811,28 @@ body {
 }
 
 .builder-slots {
-    display: grid;
-    grid-template-columns: 1fr 24px 1fr 24px 1fr;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
     gap: 12px;
     margin-bottom: 20px;
+    /* Create a larger centered region for the slots to expand into */
+    min-height: 280px;
+    padding: 16px 32px;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 100%;
 }
 
 .slot-group {
-    display: grid;
-    grid-template-rows: auto 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
-    min-width: 0;
-}
-
-/* Force all slot-groups to have same row heights */
-.builder-slots > .slot-group {
-    grid-row: 1;
+    /* Let each slot size to its content */
+    width: fit-content;
+    min-width: 180px;
+    max-width: 320px;
+    flex-shrink: 0;
 }
 
 .slot-group label {
@@ -1796,26 +1846,34 @@ body {
 }
 
 .slot-connector {
-    grid-row: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 20px;
     color: var(--text-muted);
-    padding-top: 22px;
+    /* Vertically center with the slots (account for label height ~20px + gap 8px) */
+    padding-top: 28px;
+    align-self: flex-start;
+    flex-shrink: 0;
 }
 
 .drop-slot {
-    min-height: 140px;
+    min-height: 180px;
+    height: fit-content;
+    /* Flex around content with reasonable min/max */
+    width: fit-content;
+    min-width: 180px;
+    max-width: 320px;
     padding: 12px;
     background: var(--bg-secondary);
     border: 2px dashed var(--border-color);
     border-radius: 8px;
-    transition: all var(--transition-fast);
+    transition: border-color var(--transition-fast), background var(--transition-fast), width 0.2s ease, height 0.2s ease;
     position: relative;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    overflow: visible;
 }
 
 .drop-slot.empty {
@@ -1878,137 +1936,24 @@ body {
     text-align: center;
 }
 
-.slot-content {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
+/* Slot type color indicators (used on .block-content.active within slots) */
+.drop-slot .block-content.active {
+    border-left: 3px solid var(--border-color);
 }
 
-.slot-content .slot-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.slot-content .slot-icon {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.slot-content .slot-icon svg {
-    width: 16px;
-    height: 16px;
-}
-
-.slot-content .slot-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    flex: 1;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.slot-content .slot-desc {
-    font-size: 11px;
-    color: var(--text-muted);
-    line-height: 1.3;
-}
-
-.slot-content .slot-remove {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: var(--bg-secondary);
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.6;
-    transition: all var(--transition-fast);
-}
-
-.slot-content .slot-remove:hover {
-    opacity: 1;
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
-}
-
-.slot-content .slot-remove svg {
-    width: 14px;
-    height: 14px;
-}
-
-/* Slot parameters - make them compact */
-.slot-content .slot-params {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.slot-content .param-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-}
-
-.slot-content .param-row label {
-    color: var(--text-muted);
-    min-width: 0;
-    flex-shrink: 0;
-    font-size: 11px;
-    margin-bottom: 0;
-}
-
-.slot-content .param-input {
-    flex: 1;
-    min-width: 0;
-    padding: 6px 8px;
-    font-size: 12px;
-}
-
-.slot-content .slot-remove:hover {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-}
-
-.slot-content {
-    position: relative;
-    padding: 10px;
-    background: var(--bg-hover);
-    border-radius: 6px;
-}
-
-.slot-condition {
+.condition-slot .block-content.active {
     border-left: 3px solid #f59e0b;
 }
 
-.slot-target {
+.target-slot .block-content.active {
     border-left: 3px solid #3b82f6;
 }
 
-.slot-value {
+.value-slot .block-content.active {
     border-left: 3px solid #10b981;
 }
 
-.slot-params {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-color);
-}
-
+/* Legacy param styles kept for compatibility */
 .param-row {
     display: flex;
     align-items: center;
@@ -2018,20 +1963,19 @@ body {
 .param-row label {
     font-size: 11px;
     color: var(--text-muted);
-    min-width: 80px;
     margin-bottom: 0;
     text-transform: none;
 }
 
 .param-input {
     flex: 1;
-    padding: 6px 10px;
+    padding: 4px 8px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
     font-family: var(--font-main);
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .param-input:focus {
@@ -2044,7 +1988,7 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     min-width: 0;
 }
 
@@ -2248,8 +2192,13 @@ body {
 
 .formula-validation {
     font-size: 10px;
-    padding: 2px 0;
-    min-height: 14px;
+    padding: 0;
+    min-height: 0;
+    line-height: 1.2;
+}
+
+.formula-validation:not(:empty) {
+    padding-top: 2px;
 }
 
 .formula-validation.valid {
@@ -2322,58 +2271,246 @@ body {
 .rules-list-container {
     background: var(--bg-panel);
     border-radius: 8px;
-    padding: 20px;
+    padding: 16px;
     flex: 1;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    max-height: 280px;
 }
 
 .rules-list-container h3 {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
 }
 
 .rules-count {
     font-weight: 400;
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .rules-list {
     flex: 1;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     gap: 8px;
+    align-content: start;
+    max-height: 130px;
+    padding-right: 4px;
 }
 
 .empty-rules {
-    padding: 40px 20px;
+    grid-column: 1 / -1;
+    padding: 30px 15px;
     text-align: center;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 13px;
 }
 
+/* Rule cards grid */
 .rule-item {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     overflow: hidden;
     transition: all var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    padding: 8px 10px;
+    min-height: 52px;
 }
 
 .rule-item:hover {
     border-color: var(--accent-green);
+    background: var(--bg-hover);
+    z-index: 10;
 }
 
 .rule-item.disabled {
-    opacity: 0.5;
+    opacity: 0.45;
 }
 
-.rule-header {
+/* Hide full header in grid mode, show compact indicator */
+.rule-item .rule-header {
+    display: none;
+}
+
+.rule-item .rule-preview {
+    display: none;
+}
+
+/* Rule number badge */
+.rule-item .rule-number {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    position: absolute;
+    top: 4px;
+    right: 6px;
+}
+
+/* Rule abbreviation label */
+.rule-item .rule-abbrev {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rule-item.enabled .rule-abbrev {
+    color: var(--accent-green);
+}
+
+/* Rule value indicator */
+.rule-item .rule-value {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Category color indicators */
+.rule-item[data-category="material"] {
+    border-left: 3px solid #fbbf24;
+}
+
+.rule-item[data-category="mobility"] {
+    border-left: 3px solid #3b82f6;
+}
+
+.rule-item[data-category="king_safety"] {
+    border-left: 3px solid #ef4444;
+}
+
+.rule-item[data-category="pawn_structure"] {
+    border-left: 3px solid #10b981;
+}
+
+.rule-item[data-category="positional"] {
+    border-left: 3px solid #8b5cf6;
+}
+
+.rule-item[data-category="piece_coordination"] {
+    border-left: 3px solid #06b6d4;
+}
+
+.rule-item[data-category="threats"] {
+    border-left: 3px solid #f97316;
+}
+
+/* Tooltip for rule details on hover */
+.rule-item .rule-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 10px;
+    min-width: 160px;
+    max-width: 220px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.15s ease;
+    pointer-events: none;
+    margin-bottom: 6px;
+}
+
+.rule-item:hover .rule-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.rule-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--bg-panel);
+}
+
+.rule-tooltip .tooltip-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.rule-tooltip .tooltip-category {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.rule-tooltip .tooltip-preview {
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.3;
+}
+
+.rule-tooltip .tooltip-preview em {
+    color: #f59e0b;
+    font-style: normal;
+}
+
+.rule-tooltip .tooltip-preview strong {
+    color: #10b981;
+}
+
+.rule-tooltip .tooltip-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-color);
+}
+
+.rule-tooltip .tooltip-actions button {
+    flex: 1;
+    padding: 4px 8px;
+    font-size: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    pointer-events: auto;
+}
+
+.rule-tooltip .tooltip-actions button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.rule-tooltip .tooltip-actions .edit-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.rule-tooltip .tooltip-actions .delete-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+/* Legacy styles for expanded view (keep for compatibility) */
+.rule-header-full {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -2473,22 +2610,6 @@ body {
 .rule-delete:hover {
     background: rgba(239, 68, 68, 0.2);
     color: #ef4444;
-}
-
-.rule-preview {
-    padding: 10px 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    line-height: 1.5;
-}
-
-.rule-preview em {
-    color: #f59e0b;
-    font-style: normal;
-}
-
-.rule-preview strong {
-    color: #10b981;
 }
 
 /* Weights Panel (Right) */

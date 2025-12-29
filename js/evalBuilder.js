@@ -242,37 +242,8 @@ class EvalBuilder {
         el.dataset.blockType = type;
         el.draggable = true;
         
-        // Create content matching slot layout
-        const content = document.createElement('div');
-        content.className = 'block-content';
-        
-        // Header with icon and name
-        const header = document.createElement('div');
-        header.className = 'block-header';
-        header.innerHTML = `
-            <span class="block-icon"><i data-lucide="${block.icon}"></i></span>
-            <span class="block-name">${block.name}</span>
-        `;
-        content.appendChild(header);
-        
-        // Description
-        if (block.description) {
-            const desc = document.createElement('div');
-            desc.className = 'block-desc';
-            desc.textContent = block.description;
-            content.appendChild(desc);
-        }
-        
-        // Add greyed-out parameters preview
-        if (block.params && block.params.length > 0) {
-            const paramsEl = document.createElement('div');
-            paramsEl.className = 'block-params-preview';
-            block.params.forEach(param => {
-                paramsEl.appendChild(this.createDisabledParamInput(param));
-            });
-            content.appendChild(paramsEl);
-        }
-        
+        // Use shared content renderer with preview=true (disabled fields)
+        const content = this.renderBlockContent(block, type, { preview: true });
         el.appendChild(content);
         
         el.addEventListener('dragstart', (e) => {
@@ -291,40 +262,6 @@ class EvalBuilder {
         return el;
     }
     
-    createDisabledParamInput(param) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'param-row disabled';
-        
-        const label = document.createElement('label');
-        label.textContent = param.label;
-        wrapper.appendChild(label);
-        
-        let input;
-        if (param.type === 'select') {
-            input = document.createElement('select');
-            input.disabled = true;
-            const option = document.createElement('option');
-            option.textContent = '—';
-            input.appendChild(option);
-        } else if (param.type === 'formula') {
-            input = document.createElement('input');
-            input.type = 'text';
-            input.disabled = true;
-            input.placeholder = 'formula';
-            input.className = 'param-input formula-input';
-        } else {
-            input = document.createElement('input');
-            input.type = param.type === 'number' ? 'number' : 'text';
-            input.disabled = true;
-            input.placeholder = '—';
-        }
-        
-        input.className = (input.className || '') + ' param-input';
-        wrapper.appendChild(input);
-        
-        return wrapper;
-    }
-    
     selectBlock(block, type) {
         // Add block to current rule builder
         const slotEl = document.getElementById(`rule-${type}-slot`);
@@ -336,192 +273,204 @@ class EvalBuilder {
         slotEl.classList.remove('empty', 'required');
         slotEl.dataset.blockId = block.id;
         
-        const content = document.createElement('div');
-        content.className = `slot-content slot-${type}`;
-        
-        // Header with icon and name
-        const header = document.createElement('div');
-        header.className = 'slot-header';
-        header.innerHTML = `
-            <span class="slot-icon"><i data-lucide="${block.icon}"></i></span>
-            <span class="slot-name">${block.name}</span>
-        `;
-        content.appendChild(header);
-        
-        // Description/hint (same as bank)
-        if (block.description) {
-            const desc = document.createElement('div');
-            desc.className = 'slot-desc';
-            desc.textContent = block.description;
-            content.appendChild(desc);
-        }
-        
-        // Remove button
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'slot-remove';
-        removeBtn.title = 'Remove';
-        removeBtn.innerHTML = '<i data-lucide="x"></i>';
-        removeBtn.addEventListener('click', () => {
-            this.clearSlot(slotEl, type);
+        // Use shared content renderer with preview=false (active fields)
+        const content = this.renderBlockContent(block, type, { 
+            preview: false, 
+            onRemove: () => this.clearSlot(slotEl, type) 
         });
-        content.appendChild(removeBtn);
-        
-        // Add parameters
-        if (block.params && block.params.length > 0) {
-            const paramsEl = document.createElement('div');
-            paramsEl.className = 'slot-params';
-            block.params.forEach(param => {
-                paramsEl.appendChild(this.createParamInput(param));
-            });
-            content.appendChild(paramsEl);
-        }
-        
         slotEl.appendChild(content);
         
         // Reinitialize Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
-        
-        // Sync heights after content change
-        this.syncSlotHeights();
     }
     
-    createParamInput(param) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'param-row';
+    /**
+     * Shared block content renderer - single source of truth for both bank and slot tiles
+     * @param {Object} block - The block definition
+     * @param {string} type - Block type (condition, target, value)
+     * @param {Object} options - { preview: boolean, onRemove: function }
+     *   - preview: true = greyed out fields (bank), false = active fields (slot)
+     *   - onRemove: callback for remove button (only shown if provided)
+     */
+    renderBlockContent(block, type, options = {}) {
+        const { preview = false, onRemove = null } = options;
         
-        // Label container (with optional info button)
-        const labelContainer = document.createElement('div');
-        labelContainer.className = 'param-label-container';
+        const content = document.createElement('div');
+        content.className = `block-content${preview ? ' preview' : ' active'}`;
         
-        const label = document.createElement('label');
-        label.textContent = param.label;
-        labelContainer.appendChild(label);
+        // Header with icon and name
+        const header = document.createElement('div');
+        header.className = 'block-header';
+        header.innerHTML = `
+            <span class="block-icon"><i data-lucide="${block.icon}"></i></span>
+            <span class="block-name">${block.name}</span>
+        `;
+        content.appendChild(header);
         
-        // Add info button if param has info property
-        if (param.info) {
-            const infoBtn = document.createElement('button');
-            infoBtn.type = 'button';
-            infoBtn.className = 'param-info-btn';
-            infoBtn.innerHTML = '<i data-lucide="info"></i>';
-            infoBtn.title = 'More info';
-            
-            const tooltip = document.createElement('div');
-            tooltip.className = 'param-tooltip';
-            tooltip.textContent = param.info;
-            
-            infoBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // Close other tooltips first
-                document.querySelectorAll('.param-tooltip.visible').forEach(t => {
-                    if (t !== tooltip) t.classList.remove('visible');
-                });
-                tooltip.classList.toggle('visible');
-            });
-            
-            labelContainer.appendChild(infoBtn);
-            labelContainer.appendChild(tooltip);
+        // Description
+        if (block.description) {
+            const desc = document.createElement('div');
+            desc.className = 'block-desc';
+            desc.textContent = block.description;
+            content.appendChild(desc);
         }
         
-        wrapper.appendChild(labelContainer);
+        // Remove button (only for active/slot mode)
+        if (onRemove) {
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'block-remove';
+            removeBtn.title = 'Remove';
+            removeBtn.innerHTML = '<i data-lucide="x"></i>';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                onRemove();
+            });
+            content.appendChild(removeBtn);
+        }
+        
+        // Add parameters
+        if (block.params && block.params.length > 0) {
+            const paramsEl = document.createElement('div');
+            paramsEl.className = 'block-params';
+            block.params.forEach(param => {
+                paramsEl.appendChild(this.createParamInput(param, preview));
+            });
+            content.appendChild(paramsEl);
+        }
+        
+        return content;
+    }
+    
+    /**
+     * Create a parameter input row
+     * @param {Object} param - The parameter definition
+     * @param {boolean} disabled - Whether the input should be disabled (preview mode)
+     */
+    createParamInput(param, disabled = false) {
+        const wrapper = document.createElement('div');
+        wrapper.className = `param-row${disabled ? ' disabled' : ''}`;
+        
+        // Label
+        const label = document.createElement('label');
+        label.textContent = param.label;
+        wrapper.appendChild(label);
         
         let input;
         if (param.type === 'select') {
             input = document.createElement('select');
-            param.options.forEach(opt => {
+            input.disabled = disabled;
+            if (disabled) {
+                // Preview mode - show placeholder
                 const option = document.createElement('option');
-                option.value = opt;
-                option.textContent = this.formatOption(opt);
+                option.textContent = '—';
                 input.appendChild(option);
-            });
+            } else {
+                // Active mode - show all options
+                param.options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt;
+                    option.textContent = this.formatOption(opt);
+                    input.appendChild(option);
+                });
+            }
         } else if (param.type === 'formula') {
-            // Formula input with validation
-            const formulaWrapper = document.createElement('div');
-            formulaWrapper.className = 'formula-input-wrapper';
-            
-            // Input row with info button
-            const inputRow = document.createElement('div');
-            inputRow.className = 'formula-input-row';
-            
-            input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = param.placeholder || 'n * 10';
-            input.value = param.default || 'n * 10';
-            input.name = param.name;
-            input.className = 'param-input formula-input';
-            
-            // Info button with tooltip
-            const infoBtn = document.createElement('button');
-            infoBtn.type = 'button';
-            infoBtn.className = 'formula-info-btn';
-            infoBtn.innerHTML = '<i data-lucide="info"></i>';
-            infoBtn.title = 'Formula examples';
-            
-            // Tooltip with examples
-            const tooltip = document.createElement('div');
-            tooltip.className = 'formula-tooltip';
-            tooltip.innerHTML = `
-                <div class="tooltip-title">Formula Examples</div>
-                <div class="tooltip-item"><code>n * 10</code> — 10 cp per unit</div>
-                <div class="tooltip-item"><code>10 * sqrt(n)</code> — diminishing returns</div>
-                <div class="tooltip-item"><code>n^2 / 10</code> — accelerating</div>
-                <div class="tooltip-item"><code>100 * log(n + 1)</code> — logarithmic</div>
-                <div class="tooltip-item"><code>-5 * n</code> — penalty</div>
-                <div class="tooltip-note">n = count from target</div>
-            `;
-            
-            infoBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                tooltip.classList.toggle('visible');
-            });
-            
-            // Close tooltip when clicking elsewhere
-            document.addEventListener('click', () => {
-                tooltip.classList.remove('visible');
-            });
-            
-            inputRow.appendChild(input);
-            inputRow.appendChild(infoBtn);
-            inputRow.appendChild(tooltip);
-            
-            const validationMsg = document.createElement('div');
-            validationMsg.className = 'formula-validation';
-            
-            // Validate on input
-            input.addEventListener('input', () => {
-                const result = this.validateFormula(input.value);
-                if (result.valid) {
-                    validationMsg.textContent = `✓ Preview: n=4 → ${result.preview}`;
-                    validationMsg.className = 'formula-validation valid';
-                    input.classList.remove('invalid');
-                } else {
-                    validationMsg.textContent = `✗ ${result.error}`;
-                    validationMsg.className = 'formula-validation invalid';
-                    input.classList.add('invalid');
-                }
-            });
-            
-            // Initial validation
-            setTimeout(() => {
-                input.dispatchEvent(new Event('input'));
-                // Reinitialize lucide icons for the info button
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-            }, 0);
-            
-            formulaWrapper.appendChild(inputRow);
-            formulaWrapper.appendChild(validationMsg);
-            wrapper.appendChild(formulaWrapper);
-            return wrapper;
+            if (disabled) {
+                // Preview mode - simple disabled input
+                input = document.createElement('input');
+                input.type = 'text';
+                input.disabled = true;
+                input.placeholder = 'formula';
+                input.className = 'param-input formula-input';
+            } else {
+                // Active mode - formula input with validation
+                const formulaWrapper = document.createElement('div');
+                formulaWrapper.className = 'formula-input-wrapper';
+                
+                const inputRow = document.createElement('div');
+                inputRow.className = 'formula-input-row';
+                
+                input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = param.placeholder || 'n * 10';
+                input.value = param.default || 'n * 10';
+                input.name = param.name;
+                input.className = 'param-input formula-input';
+                
+                // Info button with tooltip
+                const infoBtn = document.createElement('button');
+                infoBtn.type = 'button';
+                infoBtn.className = 'formula-info-btn';
+                infoBtn.innerHTML = '<i data-lucide="info"></i>';
+                infoBtn.title = 'Formula examples';
+                
+                const tooltip = document.createElement('div');
+                tooltip.className = 'formula-tooltip';
+                tooltip.innerHTML = `
+                    <div class="tooltip-title">Formula Examples</div>
+                    <div class="tooltip-item"><code>n * 10</code> — 10 cp per unit</div>
+                    <div class="tooltip-item"><code>10 * sqrt(n)</code> — diminishing returns</div>
+                    <div class="tooltip-item"><code>n^2 / 10</code> — accelerating</div>
+                    <div class="tooltip-item"><code>100 * log(n + 1)</code> — logarithmic</div>
+                    <div class="tooltip-item"><code>-5 * n</code> — penalty</div>
+                    <div class="tooltip-note">n = count from target</div>
+                `;
+                
+                infoBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    tooltip.classList.toggle('visible');
+                });
+                
+                document.addEventListener('click', () => {
+                    tooltip.classList.remove('visible');
+                });
+                
+                inputRow.appendChild(input);
+                inputRow.appendChild(infoBtn);
+                inputRow.appendChild(tooltip);
+                
+                const validationMsg = document.createElement('div');
+                validationMsg.className = 'formula-validation';
+                
+                input.addEventListener('input', () => {
+                    const result = this.validateFormula(input.value);
+                    if (result.valid) {
+                        validationMsg.textContent = `✓ Preview: n=4 → ${result.preview}`;
+                        validationMsg.className = 'formula-validation valid';
+                        input.classList.remove('invalid');
+                    } else {
+                        validationMsg.textContent = `✗ ${result.error}`;
+                        validationMsg.className = 'formula-validation invalid';
+                        input.classList.add('invalid');
+                    }
+                });
+                
+                setTimeout(() => {
+                    input.dispatchEvent(new Event('input'));
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 0);
+                
+                formulaWrapper.appendChild(inputRow);
+                formulaWrapper.appendChild(validationMsg);
+                wrapper.appendChild(formulaWrapper);
+                return wrapper;
+            }
         } else {
+            // Number input
             input = document.createElement('input');
             input.type = 'number';
-            input.min = param.min ?? -1000;
-            input.max = param.max ?? 1000;
-            input.step = param.step ?? 1;
-            input.value = param.default ?? (param.min ?? 0);
+            input.disabled = disabled;
+            if (disabled) {
+                input.placeholder = '—';
+            } else {
+                input.min = param.min ?? -1000;
+                input.max = param.max ?? 1000;
+                input.step = param.step ?? 1;
+                input.value = param.default ?? (param.min ?? 0);
+            }
         }
         
         input.name = param.name;
@@ -604,33 +553,6 @@ class EvalBuilder {
         slotEl.innerHTML = `<span class="slot-placeholder">${placeholders[type] || 'Click to add'}</span>`;
         slotEl.classList.add('empty', 'required');
         delete slotEl.dataset.blockId;
-        
-        // Sync heights after clearing
-        this.syncSlotHeights();
-    }
-    
-    syncSlotHeights() {
-        // Use requestAnimationFrame to wait for DOM to update
-        requestAnimationFrame(() => {
-            const slots = document.querySelectorAll('.drop-slot');
-            if (slots.length === 0) return;
-            
-            // Reset heights first
-            slots.forEach(slot => {
-                slot.style.height = 'auto';
-            });
-            
-            // Find the tallest slot
-            let maxHeight = 140; // Minimum height
-            slots.forEach(slot => {
-                maxHeight = Math.max(maxHeight, slot.scrollHeight);
-            });
-            
-            // Apply the same height to all slots
-            slots.forEach(slot => {
-                slot.style.height = maxHeight + 'px';
-            });
-        });
     }
     
     renderRulesList() {
@@ -646,46 +568,74 @@ class EvalBuilder {
         }
         
         if (this.evaluator.rules.length === 0) {
-            listEl.innerHTML = '<div class="empty-rules">No rules yet. Create one using the builder above!</div>';
+            listEl.innerHTML = '<div class="empty-rules">No rules yet. Create one above!</div>';
             return;
         }
         
+        // Render compact grid of rule squares
         this.evaluator.rules.forEach((rule, index) => {
             const ruleEl = document.createElement('div');
-            ruleEl.className = `rule-item ${rule.enabled ? '' : 'disabled'}`;
+            ruleEl.className = `rule-item ${rule.enabled ? 'enabled' : 'disabled'}`;
             ruleEl.dataset.ruleId = rule.id;
+            ruleEl.dataset.index = index + 1;
+            ruleEl.dataset.category = rule.category || 'positional';
             
-            ruleEl.innerHTML = `
-                <div class="rule-header">
-                    <label class="rule-toggle">
-                        <input type="checkbox" ${rule.enabled ? 'checked' : ''}>
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="rule-name">${rule.name}</span>
-                    <span class="rule-category">${this.formatOption(rule.category)}</span>
-                    <div class="rule-actions">
-                        <button class="rule-edit" title="Edit"><i data-lucide="pencil"></i></button>
-                        <button class="rule-delete" title="Delete"><i data-lucide="trash-2"></i></button>
-                    </div>
+            // Add rule number badge
+            const numEl = document.createElement('span');
+            numEl.className = 'rule-number';
+            numEl.textContent = index + 1;
+            ruleEl.appendChild(numEl);
+            
+            // Add abbreviated label
+            const abbrevEl = document.createElement('span');
+            abbrevEl.className = 'rule-abbrev';
+            abbrevEl.textContent = this.getRuleAbbrev(rule);
+            ruleEl.appendChild(abbrevEl);
+            
+            // Add value indicator
+            const valueEl = document.createElement('span');
+            valueEl.className = 'rule-value';
+            valueEl.textContent = this.getRuleValueShort(rule);
+            ruleEl.appendChild(valueEl);
+            
+            // Create tooltip with rule details
+            const tooltip = document.createElement('div');
+            tooltip.className = 'rule-tooltip';
+            tooltip.innerHTML = `
+                <div class="tooltip-name">${rule.name}</div>
+                <div class="tooltip-category">${this.formatOption(rule.category)}</div>
+                <div class="tooltip-preview">${this.getRulePreview(rule)}</div>
+                <div class="tooltip-actions">
+                    <button class="edit-btn" title="Edit">Edit</button>
+                    <button class="delete-btn" title="Delete">Delete</button>
                 </div>
-                <div class="rule-preview">${this.getRulePreview(rule)}</div>
             `;
             
-            ruleEl.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
-                rule.enabled = e.target.checked;
-                ruleEl.classList.toggle('disabled', !rule.enabled);
-                this.saveToStorage();
-            });
+            ruleEl.appendChild(tooltip);
             
-            ruleEl.querySelector('.rule-edit').addEventListener('click', () => {
-                this.editRule(rule);
-            });
-            
-            ruleEl.querySelector('.rule-delete').addEventListener('click', () => {
-                this.deleteRule(rule.id);
+            // Click to toggle enabled state
+            ruleEl.addEventListener('click', (e) => {
+                if (!e.target.closest('.tooltip-actions')) {
+                    rule.enabled = !rule.enabled;
+                    ruleEl.classList.toggle('enabled', rule.enabled);
+                    ruleEl.classList.toggle('disabled', !rule.enabled);
+                    this.saveToStorage();
+                    this.renderRulesList(); // Re-render to update count
+                }
             });
             
             listEl.appendChild(ruleEl);
+            
+            // Bind tooltip action buttons after appending
+            tooltip.querySelector('.edit-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.editRule(rule);
+            });
+            
+            tooltip.querySelector('.delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteRule(rule.id);
+            });
         });
         
         // Reinitialize Lucide icons
@@ -713,6 +663,104 @@ class EvalBuilder {
         }
         
         return preview || 'Incomplete rule';
+    }
+    
+    getRuleAbbrev(rule) {
+        // Generate a short abbreviation based on target type
+        if (!rule.target) return '???';
+        
+        let abbrev = '';
+        const targetType = rule.target.type;
+        
+        switch (targetType) {
+            case 'simple_material':
+                abbrev = rule.target.pieceType ? this.getPieceAbbrev(rule.target.pieceType) : 'Mat';
+                break;
+            case 'mobility':
+                abbrev = rule.target.pieceType ? `${this.getPieceAbbrev(rule.target.pieceType)}Mob` : 'Mob';
+                break;
+            case 'defense':
+                abbrev = rule.target.pieceType ? `Def${this.getPieceAbbrev(rule.target.pieceType)}` : 'Def';
+                break;
+            case 'piece_distance':
+                abbrev = 'Dist';
+                break;
+            case 'pawn_advancement':
+                abbrev = 'PwnAdv';
+                break;
+            case 'pawn_neighbors':
+                abbrev = 'PwnNbr';
+                break;
+            case 'check':
+                abbrev = 'Check';
+                break;
+            case 'global':
+                abbrev = 'Bonus';
+                break;
+            case 'king_safety':
+                abbrev = 'KSafe';
+                break;
+            default:
+                // For unknown types, create a readable abbreviation
+                abbrev = targetType
+                    .split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1, 3))
+                    .join('')
+                    .substring(0, 6);
+        }
+        
+        // Add condition hint if not "always"
+        if (rule.condition && rule.condition.type !== 'always') {
+            const condAbbrevs = {
+                'game_phase': this.getPhaseAbbrev(rule.condition.phase),
+                'material': 'Mat',
+                'castling': 'Cast',
+                'piece_distance': 'Dist'
+            };
+            const condHint = condAbbrevs[rule.condition.type] || '';
+            if (condHint) {
+                abbrev = `${condHint}:${abbrev}`;
+            }
+        }
+        
+        return abbrev;
+    }
+    
+    getPieceAbbrev(pieceType) {
+        const abbrevs = {
+            'pawn': 'P',
+            'knight': 'N',
+            'bishop': 'B',
+            'rook': 'R',
+            'queen': 'Q',
+            'king': 'K',
+            'any': 'All'
+        };
+        return abbrevs[pieceType] || pieceType.charAt(0).toUpperCase();
+    }
+    
+    getPhaseAbbrev(phase) {
+        const abbrevs = {
+            'opening': 'Op',
+            'middlegame': 'Mid',
+            'endgame': 'End',
+            'late_endgame': 'Late'
+        };
+        return abbrevs[phase] || '';
+    }
+    
+    getRuleValueShort(rule) {
+        if (!rule.value) return '';
+        
+        if (rule.value.type === 'fixed') {
+            const val = rule.value.baseValue || 0;
+            return val >= 0 ? `+${val}` : `${val}`;
+        } else if (rule.value.type === 'scaled') {
+            return `×${rule.value.multiplier || 1}`;
+        } else if (rule.value.type === 'conditional') {
+            return 'Cond';
+        }
+        return '';
     }
     
     describeCondition(cond) {
@@ -774,6 +822,7 @@ class EvalBuilder {
     
     renderCategoryWeights() {
         const container = document.getElementById('category-weights');
+        if (!container) return;
         container.innerHTML = '';
         
         Object.entries(this.evaluator.categoryWeights).forEach(([category, weight]) => {
@@ -879,9 +928,22 @@ class EvalBuilder {
     }
     
     showBlockPicker(type, slot) {
-        // For simplicity, scroll to the relevant catalog section
+        // Scroll within the block catalog panel only, not the whole page
         const section = document.getElementById(`${type}-blocks`);
-        section.scrollIntoView({ behavior: 'smooth' });
+        const catalog = document.querySelector('.block-catalog');
+        
+        if (catalog && section) {
+            // Calculate the offset within the catalog
+            const catalogRect = catalog.getBoundingClientRect();
+            const sectionRect = section.getBoundingClientRect();
+            const scrollOffset = sectionRect.top - catalogRect.top + catalog.scrollTop - 20;
+            
+            catalog.scrollTo({
+                top: scrollOffset,
+                behavior: 'smooth'
+            });
+        }
+        
         section.classList.add('highlight');
         setTimeout(() => section.classList.remove('highlight'), 1000);
     }

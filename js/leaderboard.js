@@ -214,13 +214,14 @@ class Leaderboard {
     }
 
     renderStats(stats) {
-        document.getElementById('total-evals')?.textContent = stats.total_evals || 0;
-        document.getElementById('total-matches')?.textContent = stats.total_matches || 0;
-        if (stats.top_eval) {
-            const topEl = document.getElementById('top-eval');
-            if (topEl) {
-                topEl.textContent = `${stats.top_eval.name} (${stats.top_eval.elo})`;
-            }
+        const totalEvalsEl = document.getElementById('total-evals');
+        const totalMatchesEl = document.getElementById('total-matches');
+        const topEvalEl = document.getElementById('top-eval');
+        
+        if (totalEvalsEl) totalEvalsEl.textContent = stats.total_evals || 0;
+        if (totalMatchesEl) totalMatchesEl.textContent = stats.total_matches || 0;
+        if (stats.top_eval && topEvalEl) {
+            topEvalEl.textContent = `${stats.top_eval.name} (${stats.top_eval.elo})`;
         }
     }
 
