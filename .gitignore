@@ -1,0 +1,9 @@
+# Emscripten SDK (large - should be installed locally)
+emsdk/
+
+# Build artifacts
+engine/engine_native
+
+# OS files
+.DS_Store
+
