@@ -243,42 +243,83 @@
                     </div>
 
                     <div class="rule-builder">
+                        <div class="builder-header">
                         <h3>Rule Builder</h3>
-                        <div class="builder-row">
-                            <label>Rule Name</label>
-                            <input type="text" id="rule-name-input" class="rule-name-input" 
-                                   placeholder="e.g., Pawn Material">
+                            <p class="builder-hint">Build a rule by filling in each part of the sentence below</p>
                         </div>
                         
-                        <div class="builder-slots">
-                            <div class="slot-group">
-                                <label>When <span class="required">*</span></label>
-                                <div id="rule-condition-slot" class="drop-slot condition-slot empty required">
-                                    <span class="slot-placeholder">Click to add condition</span>
+                        <div class="rule-sentence-builder">
+                            <div class="sentence-step step-condition">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <div class="step-label">
+                                        <span class="step-title">Condition</span>
+                                        <span class="step-subtitle">When should this rule apply?</span>
+                                    </div>
+                                    <div id="rule-condition-slot" class="drop-slot condition-slot empty required">
+                                        <span class="slot-placeholder">
+                                            <i data-lucide="filter" class="placeholder-icon"></i>
+                                            <span class="placeholder-text">Click to choose a condition</span>
+                                            <span class="placeholder-hint">e.g., "Always", "During endgame", "When I have 2+ rooks"</span>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="slot-connector">
-                                <i data-lucide="arrow-right" class="connector-icon"></i>
+                            <div class="sentence-connector">
+                                <div class="connector-line"></div>
+                                <div class="connector-word">then</div>
+                                <div class="connector-line"></div>
                             </div>
                             
-                            <div class="slot-group">
-                                <label>What <span class="required">*</span></label>
-                                <div id="rule-target-slot" class="drop-slot target-slot empty required">
-                                    <span class="slot-placeholder">Click to add target</span>
+                            <div class="sentence-step step-target">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <div class="step-label">
+                                        <span class="step-title">Target</span>
+                                        <span class="step-subtitle">What do you want to evaluate?</span>
+                                    </div>
+                                    <div id="rule-target-slot" class="drop-slot target-slot empty required">
+                                        <span class="slot-placeholder">
+                                            <i data-lucide="target" class="placeholder-icon"></i>
+                                            <span class="placeholder-text">Click to choose what to count</span>
+                                            <span class="placeholder-hint">e.g., "Each pawn I have", "Knight mobility", "King safety"</span>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="slot-connector">
-                                <i data-lucide="equal" class="connector-icon"></i>
+                            <div class="sentence-connector">
+                                <div class="connector-line"></div>
+                                <div class="connector-word">award</div>
+                                <div class="connector-line"></div>
                             </div>
                             
-                            <div class="slot-group">
-                                <label>Value <span class="required">*</span></label>
-                                <div id="rule-value-slot" class="drop-slot value-slot empty required">
-                                    <span class="slot-placeholder">Click to add value</span>
+                            <div class="sentence-step step-value">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <div class="step-label">
+                                        <span class="step-title">Value</span>
+                                        <span class="step-subtitle">How many points?</span>
+                                    </div>
+                                    <div id="rule-value-slot" class="drop-slot value-slot empty required">
+                                        <span class="slot-placeholder">
+                                            <i data-lucide="calculator" class="placeholder-icon"></i>
+                                            <span class="placeholder-text">Click to set the score</span>
+                                            <span class="placeholder-hint">e.g., "+100 centipawns" or "f(n) = 10 × √n"</span>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div class="rule-name-section">
+                            <label for="rule-name-input">
+                                <i data-lucide="tag" class="label-icon"></i>
+                                Rule Name
+                            </label>
+                            <input type="text" id="rule-name-input" class="rule-name-input" 
+                                   placeholder="Give your rule a name (e.g., Pawn Material, Knight Outpost Bonus)">
                         </div>
                         
                         <div class="builder-buttons">
@@ -291,13 +332,14 @@
                                 Clear
                             </button>
                         </div>
+                        </div>
                     </div>
 
+                <!-- Right: Active Rules -->
                     <div class="rules-list-container">
-                        <h3>Rules <span class="rules-count" id="rules-count"></span></h3>
+                    <h3>Active Rules <span class="rules-count" id="rules-count"></span></h3>
                         <div id="rules-list" class="rules-list">
-                            <div class="empty-rules">No rules yet. Create one using the builder above!</div>
-                        </div>
+                        <div class="empty-rules">No rules yet. Create one using the builder!</div>
                     </div>
                 </div>
             </div>
@@ -362,7 +404,6 @@
                                 <th data-sort="elo">ELO</th>
                                 <th data-sort="games_played">Games</th>
                                 <th>W/D/L</th>
-                                <th>Win Rate</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -494,6 +535,7 @@
     <script>registerDebugBots();</script>
     <script src="js/evalBuilder.js"></script>
     <script src="js/leaderboard.js"></script>
+    <script src="js/liveGameViewer.js"></script>
     <script src="js/app.js"></script>
     <script>
         // Initialize Lucide icons

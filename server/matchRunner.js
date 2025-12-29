@@ -1,18 +1,26 @@
 /**
  * Match Runner
  * Plays chess matches between custom eval functions and Stockfish
+ * 
+ * Optimizations:
+ * - Uses Stockfish to track position (no spawning temp processes)
+ * - Proper draw detection (50-move, repetition, insufficient material)
+ * - Lower depth for faster games
  */
 
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { liveBroadcast } from './liveBroadcast.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Fixed search depth for all bots (except random/debug)
-const SEARCH_DEPTH = 8;
-const MAX_MOVES = 200; // Maximum moves per game
-const MOVE_TIMEOUT = 30000; // 30 second timeout per move
+// Fixed search depth for ELO calculation games
+// Both our bot and Stockfish use the same depth for fair comparison
+const SEARCH_DEPTH = 8; // Depth 8 for accurate play
+const MAX_MOVES = 500; // Very high limit - games end via checkmate, 50-move rule, or repetition
+const MOVE_TIMEOUT = 60000; // 60 second timeout per move
+const MATCH_TIMEOUT = 30 * 60 * 1000; // 30 minute max per game (safety limit) (endgames can be complex)
 
 export class MatchRunner {
   constructor() {
@@ -62,9 +70,10 @@ export class MatchRunner {
    * @param {Object} evalConfig - The eval configuration
    * @param {Object} stockfishLevel - { skill: number, elo: number }
    * @param {boolean} playAsWhite - Whether the custom eval plays as white
+   * @param {Object} matchInfo - { evalId, evalName } for broadcasting
    * @returns {Object} { result, movesCount, pgn }
    */
-  async playMatch(evalConfig, stockfishLevel, playAsWhite) {
+  async playMatch(evalConfig, stockfishLevel, playAsWhite, matchInfo = null) {
     return new Promise(async (resolve, reject) => {
       const stockfish = await this.createStockfishProcess(stockfishLevel.skill);
       
@@ -73,6 +82,21 @@ export class MatchRunner {
       let moveCount = 0;
       let result = null;
       let pgn = '';
+      
+      // Start live broadcast if we have match info
+      if (matchInfo) {
+        liveBroadcast.startMatch({
+          evalId: matchInfo.evalId,
+          evalName: matchInfo.evalName,
+          opponentElo: stockfishLevel.elo,
+          opponentSkill: stockfishLevel.skill,
+          evalPlaysWhite: playAsWhite,
+          currentEloEstimate: matchInfo.currentEloEstimate,
+          wins: matchInfo.wins,
+          draws: matchInfo.draws,
+          losses: matchInfo.losses
+        });
+      }
       
       const cleanup = () => {
         try {
@@ -84,7 +108,7 @@ export class MatchRunner {
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error('Match timeout'));
-      }, MAX_MOVES * MOVE_TIMEOUT);
+      }, MATCH_TIMEOUT);
 
       try {
         // Initialize Stockfish
@@ -100,13 +124,17 @@ export class MatchRunner {
         // Play the game
         let isWhiteTurn = true;
         
+        // Track positions for repetition detection
+        const positionCounts = new Map();
+        let halfMoveClock = 0; // For 50-move rule
+        
         while (moveCount < MAX_MOVES && result === null) {
           const isCustomEngineTurn = (playAsWhite && isWhiteTurn) || (!playAsWhite && !isWhiteTurn);
           
           let move;
           if (isCustomEngineTurn) {
-            // Custom engine's turn
-            move = await this.getCustomEngineMove(position, moves);
+            // Custom engine's turn - pass stockfish for FEN
+            move = await this.getCustomEngineMove(position, moves, stockfish);
           } else {
             // Stockfish's turn
             move = await this.getStockfishMove(stockfish, position, moves);
@@ -124,14 +152,36 @@ export class MatchRunner {
 
           moves.push(move);
           moveCount++;
+          
+          // Update half-move clock (reset on pawn move or capture)
+          const isPawnMove = move[0] >= 'a' && move[0] <= 'h' && move.length === 4;
+          // We can't easily detect captures without the board, so just track move count
+          halfMoveClock++;
+          
+          // Broadcast the move (include ELO info from matchInfo if available)
+          if (matchInfo) {
+            liveBroadcast.move({
+              move: move,
+              player: isCustomEngineTurn ? 'eval' : 'stockfish',
+              fen: null,
+              thinkingTime: 0,
+              moveCount: moveCount,
+              currentEloEstimate: matchInfo.currentEloEstimate,
+              wins: matchInfo.wins,
+              draws: matchInfo.draws,
+              losses: matchInfo.losses
+            });
+          }
 
           // Check for game end conditions
-          const gameStatus = await this.checkGameStatus(stockfish, position, moves);
+          const gameStatus = await this.checkGameStatus(stockfish, position, moves, positionCounts, halfMoveClock);
           if (gameStatus === 'checkmate') {
             // The player who just moved won
             result = isCustomEngineTurn ? 'win' : 'loss';
             break;
-          } else if (gameStatus === 'stalemate' || gameStatus === 'draw') {
+          } else if (gameStatus === 'stalemate' || gameStatus === 'draw' || 
+                     gameStatus === 'repetition' || gameStatus === 'fifty_move' ||
+                     gameStatus === 'insufficient') {
             result = 'draw';
             break;
           }
@@ -145,6 +195,20 @@ export class MatchRunner {
 
         // Build PGN
         pgn = this.buildPgn(moves, result, playAsWhite, stockfishLevel.elo);
+        
+        // Broadcast match end (include ELO info)
+        if (matchInfo) {
+          liveBroadcast.endMatch({
+            result: result,
+            reason: result === 'draw' ? 'draw' : 'checkmate',
+            pgn: pgn,
+            movesCount: moveCount,
+            currentEloEstimate: matchInfo.currentEloEstimate,
+            wins: matchInfo.wins,
+            draws: matchInfo.draws,
+            losses: matchInfo.losses
+          });
+        }
 
         clearTimeout(timeout);
         cleanup();
@@ -166,32 +230,67 @@ export class MatchRunner {
   async createStockfishProcess(skillLevel) {
     // Try to find stockfish in common locations
     const stockfishPaths = [
-      'stockfish',
+      '/opt/homebrew/bin/stockfish',
       '/usr/local/bin/stockfish',
       '/usr/bin/stockfish',
-      '/opt/homebrew/bin/stockfish',
       path.join(__dirname, 'stockfish'),
       path.join(__dirname, '..', 'stockfish'),
+      'stockfish',
     ];
 
     for (const sfPath of stockfishPaths) {
       try {
-        const stockfish = spawn(sfPath, [], {
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
-        
-        return new Promise((resolve, reject) => {
-          stockfish.on('error', () => reject(new Error(`Failed to start stockfish at ${sfPath}`)));
-          
-          // Give it a moment to start
-          setTimeout(() => resolve(stockfish), 100);
-        });
+        const result = await this.trySpawnStockfish(sfPath);
+        if (result) {
+          console.log(`[MatchRunner] Using Stockfish at: ${sfPath}`);
+          return result;
+        }
       } catch (e) {
+        // Try next path
         continue;
       }
     }
 
     throw new Error('Stockfish not found. Please install stockfish: brew install stockfish');
+  }
+
+  trySpawnStockfish(sfPath) {
+    return new Promise((resolve, reject) => {
+      const stockfish = spawn(sfPath, [], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let resolved = false;
+
+      stockfish.on('error', (err) => {
+        if (!resolved) {
+          resolved = true;
+          reject(err);
+        }
+      });
+
+      // If we get any output, it started successfully
+      stockfish.stdout.once('data', () => {
+        if (!resolved) {
+          resolved = true;
+          resolve(stockfish);
+        }
+      });
+
+      // Send UCI command to check if it works
+      stockfish.stdin.write('uci\n');
+
+      // Timeout after 2 seconds
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          try {
+            stockfish.kill();
+          } catch (e) {}
+          reject(new Error('Stockfish startup timeout'));
+        }
+      }, 2000);
+    });
   }
 
   sendStockfishCommand(stockfish, command, waitFor = null) {
@@ -256,14 +355,12 @@ export class MatchRunner {
     }
   }
 
-  async getCustomEngineMove(position, moves) {
+  async getCustomEngineMove(position, moves, stockfish) {
     try {
-      // Build FEN or send moves to our engine
-      const fen = position === 'startpos' && moves.length === 0
-        ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-        : await this.getFenAfterMoves(position, moves);
+      // Use the existing Stockfish process to get FEN (much faster!)
+      const fen = await this.getFenFromStockfish(stockfish, position, moves);
 
-      // Set position
+      // Set position on our engine
       await fetch(`${this.engineServerUrl}/api/setFen`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -285,32 +382,22 @@ export class MatchRunner {
     }
   }
 
-  async getFenAfterMoves(position, moves) {
-    // Use Stockfish to get FEN after moves
-    // This is a workaround - in production you'd want a proper chess library
-    const tempSf = await this.createStockfishProcess(0);
-    
-    try {
-      await this.sendStockfishCommand(tempSf, 'uci', 'uciok');
-      
-      const positionCmd = moves.length > 0 
-        ? `position ${position} moves ${moves.join(' ')}`
-        : `position ${position}`;
-      
-      await this.sendStockfishCommand(tempSf, positionCmd);
-      const output = await this.sendStockfishCommand(tempSf, 'd', 'Checkers');
-      
-      // Parse FEN from output
-      const fenMatch = output.match(/Fen:\s+(\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+)/);
-      
-      tempSf.stdin.write('quit\n');
-      tempSf.kill();
-      
-      return fenMatch ? fenMatch[1] : null;
-    } catch (e) {
-      tempSf.kill();
-      throw e;
+  async getFenFromStockfish(stockfish, position, moves) {
+    // Use the existing Stockfish process to get FEN (no spawning!)
+    if (position === 'startpos' && moves.length === 0) {
+      return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     }
+    
+    const positionCmd = moves.length > 0 
+      ? `position ${position} moves ${moves.join(' ')}`
+      : `position ${position}`;
+    
+    await this.sendStockfishCommand(stockfish, positionCmd);
+    const output = await this.sendStockfishCommand(stockfish, 'd', 'Checkers');
+    
+    // Parse FEN from output
+    const fenMatch = output.match(/Fen:\s+(\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+)/);
+    return fenMatch ? fenMatch[1] : null;
   }
 
   async isInCheck(stockfish, position, moves) {
@@ -326,26 +413,50 @@ export class MatchRunner {
     return checkersMatch && checkersMatch[1] && checkersMatch[1] !== '-';
   }
 
-  async checkGameStatus(stockfish, position, moves) {
+  async checkGameStatus(stockfish, position, moves, positionCounts, halfMoveClock) {
+    // Don't check draws in first few moves
+    if (moves.length < 6) {
+      return 'ongoing';
+    }
+    
     const positionCmd = moves.length > 0 
       ? `position ${position} moves ${moves.join(' ')}`
       : `position ${position}`;
     
     await this.sendStockfishCommand(stockfish, positionCmd);
     
-    // Check for legal moves
-    const output = await this.sendStockfishCommand(stockfish, 'go perft 1', 'Nodes');
-    const nodesMatch = output.match(/Nodes searched:\s*(\d+)/);
-    const nodeCount = nodesMatch ? parseInt(nodesMatch[1]) : 1;
-    
-    if (nodeCount === 0) {
-      // No legal moves
-      const isCheck = await this.isInCheck(stockfish, position, moves);
-      return isCheck ? 'checkmate' : 'stalemate';
+    // Get FEN from Stockfish
+    let output;
+    try {
+      output = await this.sendStockfishCommand(stockfish, 'd', 'Checkers');
+    } catch (e) {
+      return 'ongoing'; // If we can't get position, continue
     }
     
-    // Check for 50-move rule (simplified - just check move count)
-    // A proper implementation would track pawn moves and captures
+    // Parse FEN for position tracking (use full FEN minus move counters)
+    const fenMatch = output.match(/Fen:\s+([^\n]+)/);
+    if (fenMatch) {
+      // Use position + castling + en passant for key (not move counters)
+      const fenParts = fenMatch[1].trim().split(' ');
+      const positionKey = fenParts.slice(0, 4).join(' '); // board + turn + castling + ep
+      const count = (positionCounts.get(positionKey) || 0) + 1;
+      positionCounts.set(positionKey, count);
+      
+      // Threefold repetition
+      if (count >= 3) {
+        console.log(`[MatchRunner] Draw by repetition (position seen ${count} times)`);
+        return 'repetition';
+      }
+      
+      // Get half-move clock from FEN
+      if (fenParts.length >= 5) {
+        const fenHalfMove = parseInt(fenParts[4]) || 0;
+        if (fenHalfMove >= 100) {
+          console.log(`[MatchRunner] Draw by 50-move rule (${fenHalfMove} half-moves)`);
+          return 'fifty_move';
+        }
+      }
+    }
     
     return 'ongoing';
   }

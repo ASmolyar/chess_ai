@@ -114,7 +114,7 @@ class Leaderboard {
         if (tbody) {
             tbody.innerHTML = `
                 <tr class="loading-row">
-                    <td colspan="7">
+                    <td colspan="6">
                         <div class="loading-spinner"></div>
                         <span>Loading leaderboard...</span>
                     </td>
@@ -128,7 +128,7 @@ class Leaderboard {
         if (tbody) {
             tbody.innerHTML = `
                 <tr class="error-row">
-                    <td colspan="7">
+                    <td colspan="6">
                         <div class="error-icon">⚠️</div>
                         <span>${message}</span>
                         <button class="retry-btn" onclick="leaderboard.loadLeaderboard()">Retry</button>
@@ -145,7 +145,7 @@ class Leaderboard {
         if (this.evals.length === 0) {
             tbody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="7">
+                    <td colspan="6">
                         <div class="empty-message">
                             <span class="empty-icon">📊</span>
                             <p>No evals yet. Be the first to upload one!</p>
@@ -161,9 +161,6 @@ class Leaderboard {
             const rankClass = rank <= 3 ? `rank-${rank}` : '';
             const eloDisplay = evalData.elo !== null ? evalData.elo : '—';
             const confidenceDisplay = evalData.elo_confidence || '';
-            const winRate = evalData.games_played > 0 
-                ? Math.round((evalData.wins / evalData.games_played) * 100) + '%'
-                : '—';
 
             return `
                 <tr class="eval-row ${rankClass}" data-id="${evalData.id}">
@@ -186,7 +183,6 @@ class Leaderboard {
                         <span class="separator">/</span>
                         <span class="losses">${evalData.losses}</span>
                     </td>
-                    <td class="winrate-cell">${winRate}</td>
                     <td class="actions-cell">
                         <button class="view-btn" onclick="leaderboard.viewEval('${evalData.id}')" title="View Details">
                             <i data-lucide="eye"></i>
@@ -227,46 +223,118 @@ class Leaderboard {
 
     async viewEval(id) {
         try {
-            const response = await fetch(`${EVAL_SERVER_URL}/api/evals/${id}`);
-            if (!response.ok) throw new Error('Failed to fetch eval');
+            // Fetch eval details and matches in parallel
+            const [evalResponse, matchesResponse] = await Promise.all([
+                fetch(`${EVAL_SERVER_URL}/api/evals/${id}`),
+                fetch(`${EVAL_SERVER_URL}/api/evals/${id}/matches`)
+            ]);
             
-            const data = await response.json();
-            this.selectedEval = data.eval;
-            this.showEvalDetails(data.eval);
+            if (!evalResponse.ok) throw new Error('Failed to fetch eval');
+            
+            const evalData = await evalResponse.json();
+            const matchesData = matchesResponse.ok ? await matchesResponse.json() : { matches: [] };
+            
+            this.selectedEval = evalData.eval;
+            this.showEvalDetails(evalData.eval, matchesData.matches || []);
         } catch (error) {
             console.error('Failed to view eval:', error);
             this.showNotification('Failed to load eval details', 'error');
         }
     }
 
-    showEvalDetails(evalData) {
-        const modal = document.getElementById('eval-details-modal');
-        if (!modal) return;
-
-        document.getElementById('detail-name').textContent = evalData.name;
-        document.getElementById('detail-author').textContent = evalData.author;
-        document.getElementById('detail-elo').textContent = evalData.elo || '—';
-        document.getElementById('detail-confidence').textContent = evalData.elo_confidence || '';
-        document.getElementById('detail-games').textContent = evalData.games_played;
-        document.getElementById('detail-record').textContent = 
-            `${evalData.wins}W / ${evalData.draws}D / ${evalData.losses}L`;
-        document.getElementById('detail-description').textContent = 
-            evalData.description || 'No description provided.';
-
-        // Display rules summary
-        const rulesContainer = document.getElementById('detail-rules');
-        if (rulesContainer && evalData.eval_config) {
-            const config = evalData.eval_config;
-            const rulesHtml = config.rules?.map(rule => 
-                `<div class="rule-summary">
-                    <span class="rule-name">${this.escapeHtml(rule.name)}</span>
-                    <span class="rule-category">${this.formatCategory(rule.category)}</span>
-                </div>`
-            ).join('') || '<p>No rules defined</p>';
-            rulesContainer.innerHTML = rulesHtml;
+    showEvalDetails(evalData, matches = []) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('eval-details-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'eval-details-modal';
+            modal.className = 'modal-overlay';
+            document.body.appendChild(modal);
         }
 
+        const winRate = evalData.games_played > 0 
+            ? Math.round((evalData.wins / evalData.games_played) * 100) 
+            : 0;
+
+        modal.innerHTML = `
+            <div class="modal-content eval-details-content">
+                <div class="modal-header">
+                    <h2>${this.escapeHtml(evalData.name)}</h2>
+                    <button class="modal-close-btn" onclick="leaderboard.hideEvalDetails()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="eval-meta">
+                        <span class="eval-author-badge">by ${this.escapeHtml(evalData.author)}</span>
+                        <span class="eval-date">${new Date(evalData.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
+                    <div class="eval-description-section">
+                        <h3>Description</h3>
+                        <p class="eval-description">${this.escapeHtml(evalData.description) || 'No description provided.'}</p>
+                    </div>
+                    
+                    <div class="eval-stats-grid">
+                        <div class="stat-card elo-card">
+                            <div class="stat-label">ELO Rating</div>
+                            <div class="stat-value">${evalData.elo || '—'}</div>
+                            ${evalData.elo_confidence ? `<div class="stat-sub">${evalData.elo_confidence}</div>` : ''}
+                        </div>
+                        <div class="stat-card games-card">
+                            <div class="stat-label">Games Played</div>
+                            <div class="stat-value">${evalData.games_played}</div>
+                        </div>
+                        <div class="stat-card record-card">
+                            <div class="stat-label">Record</div>
+                            <div class="stat-value record-display">
+                                <span class="wins">${evalData.wins}W</span>
+                                <span class="draws">${evalData.draws}D</span>
+                                <span class="losses">${evalData.losses}L</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="matches-section">
+                        <h3>Match History</h3>
+                        ${matches.length > 0 ? `
+                            <div class="matches-list">
+                                ${matches.slice(0, 20).map(match => {
+                                    const resultClass = match.result === 'win' ? 'win' : 
+                                                       match.result === 'loss' ? 'loss' : 'draw';
+                                    const resultIcon = match.result === 'win' ? '✓' : 
+                                                      match.result === 'loss' ? '✗' : '½';
+                                    return `
+                                        <div class="match-item ${resultClass}">
+                                            <span class="match-result">${resultIcon}</span>
+                                            <span class="match-opponent">vs Stockfish ${match.opponent_elo}</span>
+                                            <span class="match-moves">${match.moves_count} moves</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        ` : `
+                            <div class="no-matches">No matches played yet</div>
+                        `}
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="modal-btn secondary" onclick="leaderboard.hideEvalDetails()">Close</button>
+                    <button class="modal-btn primary" onclick="leaderboard.playAgainstSelected()">
+                        <i data-lucide="swords"></i> Play Against
+                    </button>
+                </div>
+            </div>
+        `;
+
         modal.classList.add('active');
+        
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     hideEvalDetails() {

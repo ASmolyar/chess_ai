@@ -33,155 +33,168 @@ class EvalBuilder {
                 always: {
                     id: 'always',
                     name: 'Always Apply',
-                    description: 'Rule applies every move (leave empty for same effect)',
+                    description: 'This rule applies on every move regardless of game state',
                     icon: 'check',
-                    params: []
+                    params: [],
+                    sentence: ['Always apply this rule']
                 },
                 game_phase: {
                     id: 'game_phase',
                     name: 'Game Phase',
-                    description: 'Only apply in opening/middlegame/endgame (based on material left)',
+                    description: 'Only apply this rule during a specific phase of the game',
                     icon: 'clock',
                     params: [
-                        { name: 'phase', type: 'select', options: ['opening', 'middlegame', 'endgame', 'late_endgame'], label: 'Phase' }
-                    ]
+                        { name: 'phase', type: 'select', options: ['opening', 'middlegame', 'endgame', 'late endgame'], optionValues: ['opening', 'middlegame', 'endgame', 'late_endgame'], label: 'Phase' }
+                    ],
+                    sentence: ['Only during the', { param: 'phase' }, 'phase']
                 },
                 material: {
                     id: 'material',
                     name: 'Material Count',
-                    description: 'Only apply if a certain number of pieces exist on board',
+                    description: 'Apply when a player has a certain number of pieces',
                     icon: 'hash',
                     params: [
-                        { name: 'pieceType', type: 'select', options: ['any', 'pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'Piece' },
-                        { name: 'player', type: 'select', options: ['my', 'opponent', 'both'], label: 'Whose pieces?' },
-                        { name: 'comparison', type: 'select', options: ['at_least', 'at_most', 'exactly', 'more_than', 'less_than'], label: 'Compare' },
-                        { name: 'count', type: 'number', min: 0, max: 10, label: 'Number of pieces' }
-                    ]
+                        { name: 'player', type: 'select', options: ['I', 'opponent', 'either player'], optionValues: ['my', 'opponent', 'both'], label: 'Player' },
+                        { name: 'comparison', type: 'select', options: ['have at least', 'have at most', 'have exactly', 'have more than', 'have fewer than'], optionValues: ['at_least', 'at_most', 'exactly', 'more_than', 'less_than'], label: 'Compare' },
+                        { name: 'count', type: 'number', min: 0, max: 10, label: 'Count', default: 1 },
+                        { name: 'pieceType', type: 'select', options: ['pieces', 'pawns', 'knights', 'bishops', 'rooks', 'queens'], optionValues: ['any', 'pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'Piece' }
+                    ],
+                    sentence: ['When', { param: 'player' }, { param: 'comparison' }, { param: 'count' }, { param: 'pieceType' }]
                 },
                 castling: {
                     id: 'castling',
                     name: 'Castling Status',
-                    description: 'Only apply based on castling state (rewarding safety)',
+                    description: 'Apply based on whether a player has castled',
                     icon: 'castle',
                     params: [
-                        { name: 'player', type: 'select', options: ['my', 'opponent'], label: 'Whose castling?' },
-                        { name: 'status', type: 'select', options: ['has_castled_either', 'has_castled_kingside', 'has_castled_queenside', 'has_not_castled', 'can_still_castle', 'cannot_castle'], label: 'Status' }
-                    ]
+                        { name: 'player', type: 'select', options: ['I', 'opponent'], optionValues: ['my', 'opponent'], label: 'Player' },
+                        { name: 'status', type: 'select', options: ['have castled', 'castled kingside', 'castled queenside', 'have not castled', 'can still castle', 'cannot castle'], optionValues: ['has_castled_either', 'has_castled_kingside', 'has_castled_queenside', 'has_not_castled', 'can_still_castle', 'cannot_castle'], label: 'Status' }
+                    ],
+                    sentence: ['When', { param: 'player' }, { param: 'status' }]
                 },
                 piece_distance: {
                     id: 'piece_distance',
                     name: 'Piece Distance',
-                    description: 'Only apply if two pieces are within/beyond a certain distance',
+                    description: 'Apply when two pieces are within a certain distance',
                     icon: 'move-horizontal',
                     params: [
-                        { name: 'piece1Type', type: 'select', options: ['any', 'king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 1' },
-                        { name: 'piece1Color', type: 'select', options: ['my', 'opponent'], label: 'Piece 1 Owner' },
-                        { name: 'piece2Type', type: 'select', options: ['any', 'king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 2' },
-                        { name: 'piece2Color', type: 'select', options: ['my', 'opponent'], label: 'Piece 2 Owner' },
-                        { name: 'comparison', type: 'select', options: ['less_than', 'less_equal', 'greater_than', 'greater_equal', 'exactly'], label: 'Compare' },
-                        { name: 'distance', type: 'number', min: 1, max: 14, label: 'Squares apart' }
-                    ]
+                        { name: 'piece1Color', type: 'select', options: ['my', 'opponent\'s'], optionValues: ['my', 'opponent'], label: 'Owner 1' },
+                        { name: 'piece1Type', type: 'select', options: ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 1' },
+                        { name: 'comparison', type: 'select', options: ['is within', 'is exactly', 'is more than'], optionValues: ['less_equal', 'exactly', 'greater_than'], label: 'Compare' },
+                        { name: 'distance', type: 'number', min: 1, max: 14, label: 'Distance', default: 3 },
+                        { name: 'piece2Color', type: 'select', options: ['my', 'opponent\'s'], optionValues: ['my', 'opponent'], label: 'Owner 2' },
+                        { name: 'piece2Type', type: 'select', options: ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 2' }
+                    ],
+                    sentence: ['When', { param: 'piece1Color' }, { param: 'piece1Type' }, { param: 'comparison' }, { param: 'distance' }, 'squares of', { param: 'piece2Color' }, { param: 'piece2Type' }]
                 }
             },
             targets: {
                 simple_material: {
                     id: 'simple_material',
                     name: 'Count Pieces',
-                    description: 'Counts how many of this piece you have (e.g., 2 bishops → value × 2)',
+                    description: 'Award points for each piece of a type you control',
                     icon: 'boxes',
                     category: 'material',
                     params: [
-                        { name: 'pieceType', type: 'select', options: ['any', 'pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'Piece Type' }
-                    ]
+                        { name: 'pieceType', type: 'select', options: ['pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'Piece' }
+                    ],
+                    sentence: ['For each', { param: 'pieceType' }, 'I have, award']
                 },
                 mobility: {
                     id: 'mobility',
                     name: 'Piece Mobility',
-                    description: 'Counts legal moves for this piece type (more moves = more active)',
+                    description: 'Reward pieces that have many legal moves available',
                     icon: 'move-diagonal',
                     category: 'mobility',
                     params: [
-                        { name: 'pieceType', type: 'select', options: ['any', 'knight', 'bishop', 'rook', 'queen', 'king'], label: 'Piece Type' },
-                        { name: 'captureWeight', type: 'number', min: 0.5, max: 3, step: 0.1, label: 'Capture bonus (2 = captures count double)', default: 1.0 }
-                    ]
+                        { name: 'pieceType', type: 'select', options: ['any piece', 'knight', 'bishop', 'rook', 'queen', 'king'], optionValues: ['any', 'knight', 'bishop', 'rook', 'queen', 'king'], label: 'Piece' }
+                    ],
+                    sentence: ['For each legal move my', { param: 'pieceType' }, 'can make, award']
                 },
                 defense: {
                     id: 'defense',
                     name: 'Defended Pieces',
-                    description: 'Counts pieces protected by friendly pieces (defended = safer)',
+                    description: 'Reward pieces that are protected by friendly pieces',
                     icon: 'shield',
                     category: 'piece_coordination',
                     params: [
-                        { name: 'pieceType', type: 'select', options: ['any', 'pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'Defended Piece' },
-                        { name: 'defenderType', type: 'select', options: ['any', 'pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'Defender Piece' },
-                        { name: 'minDefenders', type: 'number', min: 1, max: 5, label: 'Minimum defenders needed' }
-                    ]
+                        { name: 'pieceType', type: 'select', options: ['any piece', 'knight', 'bishop', 'rook', 'queen'], optionValues: ['any', 'knight', 'bishop', 'rook', 'queen'], label: 'Defended' },
+                        { name: 'defenderType', type: 'select', options: ['any piece', 'pawn', 'knight', 'bishop', 'rook', 'queen'], optionValues: ['any', 'pawn', 'knight', 'bishop', 'rook', 'queen'], label: 'By' },
+                        { name: 'minDefenders', type: 'number', min: 1, max: 5, label: 'Min', default: 1 }
+                    ],
+                    sentence: ['For each', { param: 'pieceType' }, 'defended by', { param: 'defenderType' }, '(at least', { param: 'minDefenders' }, 'times), award']
                 },
                 piece_distance: {
                     id: 'piece_distance',
                     name: 'Piece Distance',
-                    description: 'Measures squares between two pieces (useful in endgames)',
+                    description: 'Score based on how close or far pieces are from each other',
                     icon: 'ruler',
                     category: 'positional',
                     params: [
-                        { name: 'piece1Type', type: 'select', options: ['any', 'king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 1' },
-                        { name: 'piece1Color', type: 'select', options: ['my', 'opponent'], label: 'Piece 1 Owner' },
-                        { name: 'piece2Type', type: 'select', options: ['any', 'king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 2' },
-                        { name: 'piece2Color', type: 'select', options: ['my', 'opponent'], label: 'Piece 2 Owner' },
-                        { name: 'distanceType', type: 'select', options: ['manhattan', 'chebyshev'], label: 'Method', info: 'Manhattan = horizontal + vertical squares. Chebyshev = minimum king moves to reach.' }
-                    ]
+                        { name: 'piece1Color', type: 'select', options: ['my', 'opponent\'s'], optionValues: ['my', 'opponent'], label: 'Owner 1' },
+                        { name: 'piece1Type', type: 'select', options: ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 1' },
+                        { name: 'piece2Color', type: 'select', options: ['my', 'opponent\'s'], optionValues: ['my', 'opponent'], label: 'Owner 2' },
+                        { name: 'piece2Type', type: 'select', options: ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'], label: 'Piece 2' }
+                    ],
+                    sentence: ['For the distance between', { param: 'piece1Color' }, { param: 'piece1Type' }, 'and', { param: 'piece2Color' }, { param: 'piece2Type' }, ', award']
                 },
                 pawn_advancement: {
                     id: 'pawn_advancement',
                     name: 'Pawn Advancement',
-                    description: 'Rewards pawns that have pushed forward (closer to promotion)',
+                    description: 'Reward pawns that have pushed forward toward promotion',
                     icon: 'arrow-up',
                     category: 'pawn_structure',
-                    params: []
+                    params: [],
+                    sentence: ['For each rank my pawns have advanced, award']
                 },
                 king_safety: {
                     id: 'king_safety',
                     name: 'King Safety',
-                    description: 'Counts enemy attacks near your king (returns negative = danger!)',
+                    description: 'Penalize positions where the king is under attack',
                     icon: 'shield-alert',
                     category: 'king_safety',
-                    params: []
+                    params: [],
+                    sentence: ['For each enemy attack near my king, award']
                 },
                 check: {
                     id: 'check',
                     name: 'Giving Check',
-                    description: 'Bonus when you are giving check to opponent\'s king',
+                    description: 'Bonus when you are giving check to the opponent',
                     icon: 'zap',
                     category: 'threats',
-                    params: []
+                    params: [],
+                    sentence: ['When I am giving check, award']
                 },
                 global: {
                     id: 'global',
                     name: 'Position Bonus',
-                    description: 'A one-time bonus for the position (use with conditions like "has castled")',
+                    description: 'A flat bonus that applies when the condition is met',
                     icon: 'globe',
                     category: 'positional',
-                    params: []
+                    params: [],
+                    sentence: ['Award a flat bonus of']
                 }
             },
             values: {
                 fixed: {
                     id: 'fixed',
                     name: 'Fixed Value',
-                    description: 'Award a fixed score (e.g., +100 per pawn)',
+                    description: 'Award a fixed number of centipawns',
                     icon: 'equal',
                     params: [
-                        { name: 'value', type: 'number', min: -1000, max: 1000, label: 'Centipawns', info: '1 centipawn = 1/100th of a pawn. Standard values: Pawn=100, Knight/Bishop=300-350, Rook=500, Queen=900-1000' }
-                    ]
+                        { name: 'value', type: 'number', min: -1000, max: 1000, label: 'cp', default: 100 }
+                    ],
+                    sentence: [{ param: 'value' }, 'centipawns']
                 },
                 formula: {
                     id: 'formula',
                     name: 'Custom Formula',
-                    description: 'Write your own math formula using n (the count from target)',
+                    description: 'Use a formula where n = the count from target',
                     icon: 'function-square',
                     params: [
-                        { name: 'formula', type: 'formula', label: 'Formula (use n for count)', placeholder: '10 * sqrt(n)', default: 'n * 10' }
-                    ]
+                        { name: 'formula', type: 'formula', label: 'Formula', placeholder: '10 * sqrt(n)', default: 'n * 10' }
+                    ],
+                    sentence: ['f(n) =', { param: 'formula' }, 'centipawns']
                 }
             }
         };
@@ -309,14 +322,6 @@ class EvalBuilder {
         `;
         content.appendChild(header);
         
-        // Description
-        if (block.description) {
-            const desc = document.createElement('div');
-            desc.className = 'block-desc';
-            desc.textContent = block.description;
-            content.appendChild(desc);
-        }
-        
         // Remove button (only for active/slot mode)
         if (onRemove) {
             const removeBtn = document.createElement('button');
@@ -330,17 +335,154 @@ class EvalBuilder {
             content.appendChild(removeBtn);
         }
         
-        // Add parameters
-        if (block.params && block.params.length > 0) {
-            const paramsEl = document.createElement('div');
-            paramsEl.className = 'block-params';
-            block.params.forEach(param => {
-                paramsEl.appendChild(this.createParamInput(param, preview));
-            });
-            content.appendChild(paramsEl);
+        // Show sentence layout for blocks with params, or description for simple blocks
+        if (block.sentence && block.params && block.params.length > 0) {
+            // Blocks with params: show interactive sentence
+            const sentenceEl = this.renderSentence(block, preview);
+            content.appendChild(sentenceEl);
+        } else if (block.sentence && !preview) {
+            // Active slot with no-param block: show sentence as text
+            const sentenceEl = this.renderSentence(block, preview);
+            content.appendChild(sentenceEl);
+        } else if (block.description) {
+            // Preview mode or fallback: show description
+            const desc = document.createElement('div');
+            desc.className = 'block-desc';
+            desc.textContent = block.description;
+            content.appendChild(desc);
         }
         
         return content;
+    }
+    
+    /**
+     * Render a semantic sentence with inline dropdowns
+     */
+    renderSentence(block, preview = false) {
+        const sentenceEl = document.createElement('div');
+        sentenceEl.className = `block-sentence${preview ? ' preview' : ''}`;
+        
+        // Build param lookup
+        const paramMap = {};
+        block.params.forEach(p => paramMap[p.name] = p);
+        
+        block.sentence.forEach(part => {
+            if (typeof part === 'string') {
+                // Static text
+                const span = document.createElement('span');
+                span.className = 'sentence-text';
+                span.textContent = part;
+                sentenceEl.appendChild(span);
+            } else if (part.param) {
+                // Parameter dropdown or input
+                const param = paramMap[part.param];
+                if (param) {
+                    const wrapper = document.createElement('span');
+                    wrapper.className = 'sentence-input-wrap';
+                    
+                    // Pass part options (suffix, pluralize, etc.)
+                    const input = this.createInlineInput(param, preview, {
+                        suffix: part.suffix || '',
+                        pluralize: part.pluralize || false
+                    });
+                    wrapper.appendChild(input);
+                    sentenceEl.appendChild(wrapper);
+                }
+            }
+        });
+        
+        return sentenceEl;
+    }
+    
+    /**
+     * Create an inline input for sentence layout
+     */
+    createInlineInput(param, disabled = false, partOptions = {}) {
+        const { suffix = '', pluralize = false } = partOptions;
+        let input;
+        
+        if (param.type === 'select') {
+            input = document.createElement('select');
+            input.disabled = disabled;
+            input.className = 'sentence-select param-input'; // Include param-input for getSlotData
+            
+            if (disabled) {
+                // Preview mode - show placeholder
+                const option = document.createElement('option');
+                option.textContent = '—';
+                input.appendChild(option);
+            } else {
+                // Active mode - show all options
+                const displayOptions = param.options;
+                const valueOptions = param.optionValues || param.options;
+                
+                // Determine context for better display - piece-related params get 'piece' context
+                const isPieceParam = param.name.toLowerCase().includes('piece') || param.name.toLowerCase().includes('type');
+                const formatContext = isPieceParam ? 'piece' : null;
+                
+                displayOptions.forEach((opt, idx) => {
+                    const option = document.createElement('option');
+                    option.value = valueOptions[idx];
+                    // Smart formatting with context
+                    let displayText = this.formatOption(opt, formatContext);
+                    // Pluralize piece types (but not "piece" itself or already plural)
+                    if (pluralize && opt !== 'any' && !opt.endsWith('s') && displayText !== 'piece') {
+                        displayText += 's';
+                    } else if (pluralize && opt === 'any') {
+                        displayText = 'pieces'; // "any" pluralizes to "pieces"
+                    }
+                    option.textContent = displayText + suffix;
+                    input.appendChild(option);
+                });
+            }
+        } else if (param.type === 'formula') {
+            input = document.createElement('input');
+            input.type = 'text';
+            input.disabled = disabled;
+            input.className = 'sentence-formula param-input';
+            input.placeholder = param.placeholder || 'n * 10';
+            input.value = disabled ? '' : (param.default || 'n * 10');
+            input.name = param.name;
+            
+            if (!disabled) {
+                // Add validation on input
+                input.addEventListener('input', () => {
+                    const result = this.validateFormula(input.value);
+                    if (result.valid) {
+                        input.classList.remove('invalid');
+                        input.title = `Preview: n=4 → ${result.preview}`;
+                    } else {
+                        input.classList.add('invalid');
+                        input.title = result.error;
+                    }
+                });
+                // Trigger initial validation
+                setTimeout(() => input.dispatchEvent(new Event('input')), 0);
+            }
+            
+            return input;
+        } else {
+            // Number input
+            input = document.createElement('input');
+            input.type = 'number';
+            input.disabled = disabled;
+            input.className = 'sentence-number param-input';
+            if (disabled) {
+                input.placeholder = '—';
+                input.style.width = '2.5em';
+            } else {
+                input.min = param.min ?? -1000;
+                input.max = param.max ?? 1000;
+                input.step = param.step ?? 1;
+                input.value = param.default ?? (param.min ?? 0);
+                // Dynamic width based on value range
+                const maxDigits = Math.max(String(param.min ?? 0).length, String(param.max ?? 100).length);
+                input.style.width = `${maxDigits + 1.5}em`;
+            }
+        }
+        
+        input.name = param.name;
+        return input;
     }
     
     /**
@@ -540,7 +682,20 @@ class EvalBuilder {
             .replace(/\bexp\b/gi, 'Math.exp');
     }
     
-    formatOption(opt) {
+    formatOption(opt, context = null) {
+        // Special display mappings for more natural language
+        const displayMap = {
+            'any': context === 'piece' ? 'piece' : 'any',
+            'my': 'My',
+            'opponent': 'opponent\'s',
+            'both': 'either',
+            'manhattan': 'Manhattan',
+            'chebyshev': 'Chebyshev'
+        };
+        
+        if (displayMap[opt]) {
+            return displayMap[opt];
+        }
         return opt.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
     
@@ -572,7 +727,7 @@ class EvalBuilder {
             return;
         }
         
-        // Render compact grid of rule squares
+        // Render rule cards in grid
         this.evaluator.rules.forEach((rule, index) => {
             const ruleEl = document.createElement('div');
             ruleEl.className = `rule-item ${rule.enabled ? 'enabled' : 'disabled'}`;
@@ -580,42 +735,40 @@ class EvalBuilder {
             ruleEl.dataset.index = index + 1;
             ruleEl.dataset.category = rule.category || 'positional';
             
-            // Add rule number badge
+            // Card header with name and number
+            const headerEl = document.createElement('div');
+            headerEl.className = 'rule-card-header';
+            
+            const nameEl = document.createElement('span');
+            nameEl.className = 'rule-name';
+            nameEl.textContent = rule.name || `Rule ${index + 1}`;
+            headerEl.appendChild(nameEl);
+            
             const numEl = document.createElement('span');
             numEl.className = 'rule-number';
-            numEl.textContent = index + 1;
-            ruleEl.appendChild(numEl);
+            numEl.textContent = `#${index + 1}`;
+            headerEl.appendChild(numEl);
             
-            // Add abbreviated label
-            const abbrevEl = document.createElement('span');
-            abbrevEl.className = 'rule-abbrev';
-            abbrevEl.textContent = this.getRuleAbbrev(rule);
-            ruleEl.appendChild(abbrevEl);
+            ruleEl.appendChild(headerEl);
             
-            // Add value indicator
-            const valueEl = document.createElement('span');
-            valueEl.className = 'rule-value';
-            valueEl.textContent = this.getRuleValueShort(rule);
-            ruleEl.appendChild(valueEl);
+            // Rule description/preview
+            const descEl = document.createElement('div');
+            descEl.className = 'rule-desc';
+            descEl.innerHTML = this.getRulePreview(rule);
+            ruleEl.appendChild(descEl);
             
-            // Create tooltip with rule details
-            const tooltip = document.createElement('div');
-            tooltip.className = 'rule-tooltip';
-            tooltip.innerHTML = `
-                <div class="tooltip-name">${rule.name}</div>
-                <div class="tooltip-category">${this.formatOption(rule.category)}</div>
-                <div class="tooltip-preview">${this.getRulePreview(rule)}</div>
-                <div class="tooltip-actions">
-                    <button class="edit-btn" title="Edit">Edit</button>
-                    <button class="delete-btn" title="Delete">Delete</button>
-                </div>
+            // Action buttons (visible on hover)
+            const actionsEl = document.createElement('div');
+            actionsEl.className = 'rule-actions';
+            actionsEl.innerHTML = `
+                <button class="edit-btn" title="Edit"><i data-lucide="pencil"></i></button>
+                <button class="delete-btn" title="Delete"><i data-lucide="trash-2"></i></button>
             `;
-            
-            ruleEl.appendChild(tooltip);
+            ruleEl.appendChild(actionsEl);
             
             // Click to toggle enabled state
             ruleEl.addEventListener('click', (e) => {
-                if (!e.target.closest('.tooltip-actions')) {
+                if (!e.target.closest('.rule-actions')) {
                     rule.enabled = !rule.enabled;
                     ruleEl.classList.toggle('enabled', rule.enabled);
                     ruleEl.classList.toggle('disabled', !rule.enabled);
@@ -626,13 +779,13 @@ class EvalBuilder {
             
             listEl.appendChild(ruleEl);
             
-            // Bind tooltip action buttons after appending
-            tooltip.querySelector('.edit-btn').addEventListener('click', (e) => {
+            // Bind action buttons after appending
+            actionsEl.querySelector('.edit-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.editRule(rule);
             });
             
-            tooltip.querySelector('.delete-btn').addEventListener('click', (e) => {
+            actionsEl.querySelector('.delete-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.deleteRule(rule.id);
             });
@@ -976,11 +1129,14 @@ class EvalBuilder {
             return;
         }
         
+        // Determine if we're editing
+        const isEditing = this.editingRule !== null;
+        
         // Build rule
         const rule = {
-            id: this.editingRule ? this.editingRule.id : `rule_${this.nextRuleId++}`,
+            id: isEditing ? this.editingRule.id : `rule_${this.nextRuleId++}`,
             name: nameInput.value || 'Unnamed Rule',
-            enabled: true,
+            enabled: isEditing ? this.editingRule.enabled : true,  // Preserve enabled state when editing
             category: this.catalog.targets[targetSlot.dataset.blockId]?.category || 'positional',
             weight: 1.0
         };
@@ -995,12 +1151,11 @@ class EvalBuilder {
         rule.value = this.getSlotData(valueSlot, 'value');
         
         // Add or update
-        if (this.editingRule) {
+        if (isEditing) {
             const index = this.evaluator.rules.findIndex(r => r.id === this.editingRule.id);
             if (index >= 0) {
                 this.evaluator.rules[index] = rule;
             }
-            this.editingRule = null;
         } else {
             this.evaluator.rules.push(rule);
         }
@@ -1008,7 +1163,7 @@ class EvalBuilder {
         this.renderRulesList();
         this.clearBuilder();
         this.saveToStorage();
-        this.showNotification('Rule added successfully!', 'success');
+        this.showNotification(isEditing ? 'Rule updated successfully!' : 'Rule added successfully!', 'success');
     }
     
     getSlotData(slot, type) {
@@ -1028,6 +1183,13 @@ class EvalBuilder {
     
     editRule(rule) {
         this.editingRule = rule;
+        
+        // Update UI to show edit mode
+        const addBtn = document.getElementById('add-rule-btn');
+        const builder = document.querySelector('.rule-builder');
+        addBtn.innerHTML = '<i data-lucide="check"></i> Update Rule';
+        addBtn.classList.add('edit-mode');
+        builder.classList.add('edit-mode');
         
         // Populate builder with rule data
         document.getElementById('rule-name-input').value = rule.name;
@@ -1056,6 +1218,11 @@ class EvalBuilder {
             this.populateSlotParams(slot, rule.value);
         }
         
+        // Reinitialize Lucide icons for the button
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+        
         // Scroll to builder
         document.querySelector('.rule-builder').scrollIntoView({ behavior: 'smooth' });
     }
@@ -1078,6 +1245,18 @@ class EvalBuilder {
     clearBuilder() {
         this.editingRule = null;
         document.getElementById('rule-name-input').value = '';
+        
+        // Reset button and builder from edit mode
+        const addBtn = document.getElementById('add-rule-btn');
+        const builder = document.querySelector('.rule-builder');
+        addBtn.innerHTML = '<i data-lucide="plus"></i> Add Rule';
+        addBtn.classList.remove('edit-mode');
+        builder.classList.remove('edit-mode');
+        
+        // Reinitialize Lucide icons for the button
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
         
         ['condition', 'target', 'value'].forEach(type => {
             const slot = document.getElementById(`rule-${type}-slot`);

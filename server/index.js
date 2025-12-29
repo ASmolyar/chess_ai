@@ -11,6 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { EloCalculator } from './elo.js';
 import { MatchRunner } from './matchRunner.js';
+import { liveBroadcast } from './liveBroadcast.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -116,6 +117,20 @@ app.get('/api/evals/:id', (req, res) => {
   } catch (error) {
     console.error('Error fetching eval:', error);
     res.status(500).json({ error: 'Failed to fetch eval' });
+  }
+});
+
+// Get matches for a specific eval
+app.get('/api/evals/:id/matches', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT * FROM matches WHERE eval_id = ? ORDER BY created_at DESC LIMIT 50
+    `);
+    const matches = stmt.all(req.params.id);
+    res.json({ matches });
+  } catch (error) {
+    console.error('Error fetching matches:', error);
+    res.status(500).json({ error: 'Failed to fetch matches' });
   }
 });
 
@@ -321,8 +336,13 @@ app.get('/api/stats', (req, res) => {
   }
 });
 
-// ============ ELO CALCULATION ============
+// ============ ELO CALCULATION (Adaptive Opponent Selection) ============
 
+/**
+ * ELO calculation using adaptive opponent selection
+ * Plays 12 games against opponents at the current estimated ELO
+ * After each game, recalculates ELO from all results and picks next opponent accordingly
+ */
 async function calculateEloForEval(evalId) {
   const evalData = db.prepare('SELECT * FROM evals WHERE id = ?').get(evalId);
   if (!evalData) {
@@ -333,68 +353,155 @@ async function calculateEloForEval(evalId) {
   
   console.log(`Starting ELO calculation for "${evalData.name}" (${evalId})`);
   
-  // Stockfish ELO levels to test against (approximate ratings)
-  // We'll play multiple games at each level
-  const stockfishLevels = [
-    { skill: 0, elo: 800 },
-    { skill: 3, elo: 1000 },
-    { skill: 5, elo: 1200 },
-    { skill: 8, elo: 1400 },
-    { skill: 10, elo: 1600 },
-    { skill: 13, elo: 1800 },
-    { skill: 15, elo: 2000 },
-    { skill: 17, elo: 2200 },
-    { skill: 19, elo: 2400 },
-    { skill: 20, elo: 2600 },
-  ];
+  // Broadcast calculation start
+  liveBroadcast.calculationStatus({
+    evalId: evalId,
+    evalName: evalData.name,
+    status: 'started',
+    message: 'ELO calculation started'
+  });
   
-  const gamesPerLevel = 4; // 2 as white, 2 as black
+  // Parameters
+  const TOTAL_GAMES = 15;
+  const MIN_ELO = 600;
+  const MAX_ELO = 2800;
+  const STARTING_ELO = 1400; // Initial estimate before any games
+  
+  let currentEstimatedElo = STARTING_ELO;
   const results = [];
   
-  matchRunner.startCalculation(evalId, stockfishLevels.length * gamesPerLevel);
+  // Map ELO to Stockfish skill level (0-20)
+  function eloToSkill(elo) {
+    // Approximate mapping: 600 ELO = skill 0, 2800 ELO = skill 20
+    const skill = Math.round((elo - 600) / 110);
+    return Math.max(0, Math.min(20, skill));
+  }
+  
+  // Calculate current stats from results
+  function getStats() {
+    let wins = 0, losses = 0, draws = 0;
+    for (const r of results) {
+      if (r.result === 'win') wins++;
+      else if (r.result === 'loss') losses++;
+      else draws++;
+    }
+    return { wins, losses, draws };
+  }
+  
+  matchRunner.startCalculation(evalId, TOTAL_GAMES);
+  
+  let stockfishAvailable = true;
   
   try {
-    for (const level of stockfishLevels) {
-      // Play games at this level
-      for (let i = 0; i < gamesPerLevel; i++) {
-        const playAsWhite = i % 2 === 0;
+    for (let gameNum = 0; gameNum < TOTAL_GAMES && stockfishAvailable; gameNum++) {
+      // Pick opponent at current estimated ELO (with slight random variance for diversity)
+      const variance = Math.floor(Math.random() * 100) - 50; // ±50 ELO variance
+      const opponentElo = Math.max(MIN_ELO, Math.min(MAX_ELO, currentEstimatedElo + variance));
+      
+      const skill = eloToSkill(opponentElo);
+      const level = { skill, elo: opponentElo };
+      const playAsWhite = gameNum % 2 === 0;
+      const stats = getStats();
+      
+      // Broadcast progress with CURRENT estimated ELO
+      liveBroadcast.progress({
+        evalId: evalId,
+        evalName: evalData.name,
+        currentLevel: opponentElo,
+        estimatedElo: currentEstimatedElo,
+        gameNumber: gameNum + 1,
+        totalGames: TOTAL_GAMES,
+        wins: stats.wins,
+        draws: stats.draws,
+        losses: stats.losses,
+        message: `Game ${gameNum + 1}/${TOTAL_GAMES} vs SF ${opponentElo} ELO`
+      });
+      
+      console.log(`[ELO Calc] Game ${gameNum + 1}: Est. ELO ${currentEstimatedElo}, playing vs ${opponentElo} (skill ${skill})`);
+      
+      try {
+        const matchInfo = { 
+          evalId, 
+          evalName: evalData.name,
+          currentEloEstimate: currentEstimatedElo,
+          wins: stats.wins,
+          draws: stats.draws,
+          losses: stats.losses
+        };
+        const result = await matchRunner.playMatch(evalConfig, level, playAsWhite, matchInfo);
         
-        try {
-          const result = await matchRunner.playMatch(evalConfig, level, playAsWhite);
-          results.push({
-            opponentElo: level.elo,
-            result: result.result, // 'win', 'loss', 'draw'
-            movesCount: result.movesCount,
-            pgn: result.pgn
+        results.push({
+          opponentElo: opponentElo,
+          result: result.result,
+          movesCount: result.movesCount,
+          pgn: result.pgn
+        });
+        
+        // Record match in database
+        const matchId = uuidv4();
+        db.prepare(`
+          INSERT INTO matches (id, eval_id, opponent_type, opponent_elo, result, moves_count, pgn)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(matchId, evalId, `stockfish_skill_${skill}`, opponentElo, result.result, result.movesCount, result.pgn);
+        
+        matchRunner.incrementProgress(evalId);
+        
+        // Recalculate ELO from ALL results so far
+        const newCalc = eloCalculator.calculateFromResults(results);
+        const previousElo = currentEstimatedElo;
+        currentEstimatedElo = newCalc.elo || STARTING_ELO;
+        
+        console.log(`  → ${result.result.toUpperCase()}! ELO: ${previousElo} → ${currentEstimatedElo}`);
+        
+      } catch (matchError) {
+        console.error(`Match error at ELO ${currentEstimatedElo}:`, matchError.message);
+        matchRunner.incrementProgress(evalId);
+        
+        if (matchError.message.includes('Stockfish not found') || 
+            matchError.message.includes('Failed to start stockfish')) {
+          console.error('Stockfish not available. ELO calculation cancelled.');
+          stockfishAvailable = false;
+          liveBroadcast.calculationStatus({
+            evalId: evalId,
+            evalName: evalData.name,
+            status: 'error',
+            message: 'Stockfish not found. Install with: brew install stockfish'
           });
-          
-          // Record match in database
-          const matchId = uuidv4();
-          db.prepare(`
-            INSERT INTO matches (id, eval_id, opponent_type, opponent_elo, result, moves_count, pgn)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).run(matchId, evalId, `stockfish_skill_${level.skill}`, level.elo, result.result, result.movesCount, result.pgn);
-          
-          matchRunner.incrementProgress(evalId);
-          
-        } catch (matchError) {
-          console.error(`Match error at skill ${level.skill}:`, matchError);
-          matchRunner.incrementProgress(evalId);
+          break;
         }
       }
     }
     
-    // Calculate final ELO
-    const { elo, confidence, wins, losses, draws } = eloCalculator.calculateFromResults(results);
-    
-    // Update database
-    db.prepare(`
-      UPDATE evals 
-      SET elo = ?, elo_confidence = ?, games_played = ?, wins = ?, losses = ?, draws = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(elo, confidence, results.length, wins, losses, draws, evalId);
-    
-    console.log(`ELO calculation complete for "${evalData.name}": ${elo} (±${confidence})`);
+    if (results.length > 0) {
+      // Calculate final ELO
+      const { elo, confidence, wins, losses, draws } = eloCalculator.calculateFromResults(results);
+      
+      // Update database
+      db.prepare(`
+        UPDATE evals 
+        SET elo = ?, elo_confidence = ?, games_played = ?, wins = ?, losses = ?, draws = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(elo, confidence, results.length, wins, losses, draws, evalId);
+      
+      console.log(`ELO calculation complete for "${evalData.name}": ${elo} (±${confidence})`);
+      
+      // Broadcast completion
+      liveBroadcast.calculationStatus({
+        evalId: evalId,
+        evalName: evalData.name,
+        status: 'completed',
+        elo: elo,
+        confidence: confidence,
+        wins: wins,
+        losses: losses,
+        draws: draws,
+        gamesPlayed: results.length,
+        message: `ELO calculation complete: ${elo} (±${confidence})`
+      });
+    } else if (!stockfishAvailable) {
+      console.log(`ELO calculation skipped for "${evalData.name}" - Stockfish not available.`);
+      console.log('Install Stockfish to enable ELO calculation: brew install stockfish');
+    }
     
   } finally {
     matchRunner.endCalculation(evalId);
@@ -402,6 +509,8 @@ async function calculateEloForEval(evalId) {
 }
 
 // ============ START SERVER ============
+
+const WS_PORT = 3002;
 
 app.listen(PORT, () => {
   console.log(`Chess Eval Server running on http://localhost:${PORT}`);
@@ -411,6 +520,10 @@ app.listen(PORT, () => {
   console.log('  GET  /api/evals/:id      - Get eval details');
   console.log('  POST /api/evals/:id/calculate-elo - Trigger ELO calculation');
   console.log('  GET  /api/stats          - Get leaderboard statistics');
+  
+  // Start WebSocket server for live game broadcasting
+  liveBroadcast.start(WS_PORT);
+  console.log(`Live game broadcast available at ws://localhost:${WS_PORT}`);
 });
 
 export default app;

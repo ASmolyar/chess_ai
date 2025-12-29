@@ -586,7 +586,7 @@ class ChessApp {
     }
 
     updateBoardHighlights() {
-        const squares = document.querySelectorAll('.square');
+        const squares = document.querySelectorAll('#chess-board .square');
         
         squares.forEach(square => {
             const row = parseInt(square.dataset.row);
@@ -678,7 +678,7 @@ class ChessApp {
     
     // Trigger check flash animation
     triggerCheckFlash() {
-        const squares = document.querySelectorAll('.square');
+        const squares = document.querySelectorAll('#chess-board .square');
         
         squares.forEach(square => {
             const row = parseInt(square.dataset.row);
