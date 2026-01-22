@@ -8755,8 +8755,9 @@ body {
 
 .float-piece {
     position: absolute;
-    font-size: 32px;
-    opacity: 0.4;
+    width: 36px;
+    height: 36px;
+    opacity: 0.5;
     animation: floatPiece 6s ease-in-out infinite;
 }
 
@@ -8768,6 +8769,116 @@ body {
 @keyframes floatPiece {
     0%, 100% { transform: translateY(0) rotate(0deg); }
     50% { transform: translateY(-15px) rotate(10deg); }
+}
+
+/* Intro slide piece icons - using Lichess cburnett set */
+.intro-piece {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    vertical-align: middle;
+    /* Silhouette effect with outline */
+    filter: brightness(0) invert(1) drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
+}
+
+/* White pieces - bright white silhouette */
+.intro-piece.white {
+    filter: brightness(0) invert(1) drop-shadow(0 0 1px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.4));
+}
+
+/* Black pieces - darker silhouette with subtle outline */
+.intro-piece.black {
+    filter: brightness(0) invert(0.5) drop-shadow(0 0 1px rgba(180, 180, 180, 0.7)) drop-shadow(0 0 2px rgba(120, 120, 120, 0.3));
+}
+
+.intro-piece.white.king { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/wK.svg'); }
+.intro-piece.white.queen { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/wQ.svg'); }
+.intro-piece.white.rook { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/wR.svg'); }
+.intro-piece.white.bishop { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/wB.svg'); }
+.intro-piece.white.knight { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/wN.svg'); }
+.intro-piece.white.pawn { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/wP.svg'); }
+
+.intro-piece.black.king { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/bK.svg'); }
+.intro-piece.black.queen { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/bQ.svg'); }
+.intro-piece.black.rook { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/bR.svg'); }
+.intro-piece.black.bishop { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/bB.svg'); }
+.intro-piece.black.knight { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/bN.svg'); }
+.intro-piece.black.pawn { background-image: url('https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/bP.svg'); }
+
+/* Floating pieces - larger size */
+.float-piece.intro-piece {
+    width: 36px;
+    height: 36px;
+}
+
+/* TT board mini pieces */
+.tt-board-mini .intro-piece {
+    width: 20px;
+    height: 20px;
+    margin: 0 2px;
+}
+
+/* Quiescence board pieces */
+.q-piece.intro-piece {
+    width: 32px;
+    height: 32px;
+}
+
+/* Formula board pieces */
+.formula-board {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.formula-board .intro-piece {
+    width: 22px;
+    height: 22px;
+}
+
+.formula-vs {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 6px;
+    font-weight: 600;
+}
+
+/* Minimax leaf pieces */
+.mm-piece {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+}
+
+/* Move ordering pieces */
+.move-piece {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+}
+
+.move-desc .move-piece:first-child {
+    margin-right: 2px;
+}
+
+.move-desc .move-piece:last-child {
+    margin-left: 2px;
+}
+
+/* Depth question pieces */
+.depth-pieces {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.depth-piece {
+    width: 28px;
+    height: 28px;
 }
 
 /* Tree Graphic */
@@ -8947,6 +9058,7 @@ body {
     width: 20px;
     height: 20px;
     stroke: #ff6b6b;
+    filter: drop-shadow(0 0 3px rgba(255, 107, 107, 0.8)) drop-shadow(0 0 6px rgba(255, 107, 107, 0.5));
 }
 
 @keyframes snip {
@@ -9048,8 +9160,9 @@ body {
 }
 
 .tt-board-mini {
-    font-size: 20px;
-    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .tt-result-row .tt-label {
@@ -9583,16 +9696,16 @@ body {
 }
 
 .q-piece {
-    font-size: 36px;
+    width: 36px;
+    height: 36px;
 }
 
 .q-piece.attacking {
-    color: #fff;
     animation: attackPulse 1s ease-in-out infinite;
 }
 
 .q-piece.target {
-    color: #666;
+    opacity: 0.7;
 }
 
 .q-arrow {
@@ -9765,8 +9878,9 @@ body {
 }
 
 .formula-board {
-    font-size: 20px;
-    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .formula-arrow {
@@ -10046,4 +10160,44 @@ body {
         flex-wrap: wrap;
         justify-content: center;
     }
+}
+
+/* ========================================
+   SITE FOOTER
+   ======================================== */
+
+.site-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 20px;
+    background: linear-gradient(to top, rgba(33, 32, 29, 0.95) 0%, rgba(33, 32, 29, 0) 100%);
+    font-size: 13px;
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 100;
+}
+
+.site-footer span {
+    pointer-events: auto;
+}
+
+.heart-icon {
+    width: 14px;
+    height: 14px;
+    color: #e25555;
+    animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    14% { transform: scale(1.15); }
+    28% { transform: scale(1); }
+    42% { transform: scale(1.15); }
+    70% { transform: scale(1); }
 }

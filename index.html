@@ -32,10 +32,10 @@
                             </svg>
                         </div>
                         <div class="floating-pieces">
-                            <span class="float-piece p1">♔</span>
-                            <span class="float-piece p2">♛</span>
-                            <span class="float-piece p3">♞</span>
-                            <span class="float-piece p4">♜</span>
+                            <span class="float-piece p1 intro-piece white king"></span>
+                            <span class="float-piece p2 intro-piece black queen"></span>
+                            <span class="float-piece p3 intro-piece black knight"></span>
+                            <span class="float-piece p4 intro-piece black rook"></span>
                         </div>
                     </div>
                     <h2>Welcome to Chess AI Arena</h2>
@@ -88,10 +88,10 @@
                                 </div>
                             </div>
                             <div class="mm-level bottom">
-                                <div class="mm-leaf">+3</div>
-                                <div class="mm-leaf">-1</div>
-                                <div class="mm-leaf">+5</div>
-                                <div class="mm-leaf">+2</div>
+                                <div class="mm-leaf"><span class="intro-piece white knight mm-piece"></span>+3</div>
+                                <div class="mm-leaf"><span class="intro-piece black bishop mm-piece"></span>-1</div>
+                                <div class="mm-leaf"><span class="intro-piece white rook mm-piece"></span>+5</div>
+                                <div class="mm-leaf"><span class="intro-piece white pawn mm-piece"></span>+2</div>
                             </div>
                             <div class="mm-arrows">
                                 <div class="arrow-up a1"></div>
@@ -167,7 +167,11 @@
                                 </div>
                             </div>
                             <div class="tt-result-row">
-                                <div class="tt-board-mini">♚♛♜</div>
+                                <div class="tt-board-mini">
+                                    <span class="intro-piece black king"></span>
+                                    <span class="intro-piece black queen"></span>
+                                    <span class="intro-piece black rook"></span>
+                                </div>
                                 <div class="tt-label">Same position — cache it!</div>
                             </div>
                         </div>
@@ -228,7 +232,7 @@
                             <div class="move-list-visual">
                                 <div class="move-item top-priority">
                                     <span class="priority-badge">1st</span>
-                                    <span class="move-desc">Queen takes Queen</span>
+                                    <span class="move-desc"><span class="intro-piece white queen move-piece"></span>×<span class="intro-piece black queen move-piece"></span></span>
                                     <span class="move-tag capture">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
@@ -238,7 +242,7 @@
                                 </div>
                                 <div class="move-item high-priority">
                                     <span class="priority-badge">2nd</span>
-                                    <span class="move-desc">Previous best move</span>
+                                    <span class="move-desc"><span class="intro-piece white knight move-piece"></span>Killer move</span>
                                     <span class="move-tag killer">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/>
@@ -280,9 +284,9 @@
                         <div class="quiescence-demo">
                             <div class="q-scenario">
                                 <div class="q-board">
-                                    <span class="q-piece attacking">♕</span>
+                                    <span class="q-piece attacking intro-piece white queen"></span>
                                     <span class="q-arrow">→</span>
-                                    <span class="q-piece target">♜</span>
+                                    <span class="q-piece target intro-piece black rook"></span>
                                 </div>
                                 <div class="q-label danger">Capture in progress!</div>
                             </div>
@@ -351,6 +355,10 @@
                                     <span class="depth-end">Depth 8</span>
                                 </div>
                                 <div class="depth-question">
+                                    <span class="depth-pieces">
+                                        <span class="intro-piece white king depth-piece"></span>
+                                        <span class="intro-piece black queen depth-piece"></span>
+                                    </span>
                                     <span class="question-mark">?</span>
                                     <span class="question-text">Who's winning here?</span>
                                 </div>
@@ -371,7 +379,16 @@
                         <div class="what-eval-demo">
                             <div class="eval-formula">
                                 <div class="formula-input">
-                                    <span class="formula-board">♔♕♗♘ vs ♚♛♝</span>
+                                    <span class="formula-board">
+                                        <span class="intro-piece white king"></span>
+                                        <span class="intro-piece white queen"></span>
+                                        <span class="intro-piece white bishop"></span>
+                                        <span class="intro-piece white knight"></span>
+                                        <span class="formula-vs">vs</span>
+                                        <span class="intro-piece black king"></span>
+                                        <span class="intro-piece black queen"></span>
+                                        <span class="intro-piece black bishop"></span>
+                                    </span>
                                 </div>
                                 <div class="formula-arrow">→</div>
                                 <div class="formula-output">
@@ -1208,7 +1225,13 @@
                 
                 // Bind events
                 this.prevBtn.addEventListener('click', () => this.prev());
-                this.nextBtn.addEventListener('click', () => this.next());
+                this.nextBtn.addEventListener('click', () => {
+                    if (this.currentSlide === this.totalSlides - 1) {
+                        this.close();
+                    } else {
+                        this.next();
+                    }
+                });
                 this.closeBtn.addEventListener('click', () => this.close());
                 this.startBtn.addEventListener('click', () => this.startBuilding());
                 
@@ -1277,11 +1300,14 @@
                 // Update buttons
                 this.prevBtn.disabled = this.currentSlide === 0;
                 
-                // Hide next button on last slide (CTA takes over)
+                // Change Next to Continue on last slide
+                const nextBtnText = this.nextBtn.querySelector('span');
                 if (this.currentSlide === this.totalSlides - 1) {
-                    this.nextBtn.style.display = 'none';
+                    nextBtnText.textContent = 'Continue';
+                    this.nextBtn.classList.add('continue-btn');
                 } else {
-                    this.nextBtn.style.display = 'flex';
+                    nextBtnText.textContent = 'Next';
+                    this.nextBtn.classList.remove('continue-btn');
                 }
             }
             
@@ -1337,5 +1363,14 @@
         };
     })();
     </script>
+    
+    <!-- Footer -->
+    <footer class="site-footer">
+        <span>Made with</span>
+        <svg class="heart-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        <span>by Aaron Smolyar</span>
+    </footer>
 </body>
 </html>
