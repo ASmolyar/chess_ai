@@ -208,6 +208,13 @@ public class Position {
         return byColorBB[color];
     }
     
+    /**
+     * Get all pieces of a specific type (both colors).
+     */
+    public long piecesByType(int pieceType) {
+        return byTypeBB[pieceType];
+    }
+    
     public long piecesByType(int pieceType1, int pieceType2) {
         return byTypeBB[pieceType1] | byTypeBB[pieceType2];
     }
@@ -407,7 +414,15 @@ public class Position {
         sideToMove = opposite(sideToMove);
         
         checkers = computeCheckers();
-        history[historyIdx++] = key;
+        // Prevent history array overflow - wrap around if needed
+        if (historyIdx < history.length) {
+            history[historyIdx++] = key;
+        } else {
+            // Shift history to make room (keep recent entries)
+            System.arraycopy(history, history.length / 2, history, 0, history.length / 2);
+            historyIdx = history.length / 2;
+            history[historyIdx++] = key;
+        }
     }
     
     public void undoMove(Move m) {

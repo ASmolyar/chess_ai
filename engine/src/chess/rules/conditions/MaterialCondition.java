@@ -29,6 +29,38 @@ public class MaterialCondition implements Condition {
         this.count = count;
     }
     
+    /**
+     * Constructor accepting string parameters for JSON parsing.
+     */
+    public MaterialCondition(String pieceTypeName, String playerName, String comparisonName, int count) {
+        this.pieceType = pieceTypeFromString(pieceTypeName);
+        this.player = parsePlayer(playerName);
+        this.comparison = parseComparison(comparisonName);
+        this.count = count;
+    }
+    
+    private static Player parsePlayer(String name) {
+        if (name == null) return Player.MY;
+        switch (name.toLowerCase().trim()) {
+            case "my": return Player.MY;
+            case "opponent": case "enemy": return Player.OPPONENT;
+            case "both": case "total": return Player.BOTH;
+            default: return Player.MY;
+        }
+    }
+    
+    private static Comparison parseComparison(String name) {
+        if (name == null) return Comparison.AT_LEAST;
+        switch (name.toLowerCase().trim()) {
+            case "exactly": case "equals": case "=": case "==": return Comparison.EXACTLY;
+            case "at_least": case "atleast": case ">=": return Comparison.AT_LEAST;
+            case "at_most": case "atmost": case "<=": return Comparison.AT_MOST;
+            case "more_than": case "morethan": case ">": return Comparison.MORE_THAN;
+            case "less_than": case "lessthan": case "<": return Comparison.LESS_THAN;
+            default: return Comparison.AT_LEAST;
+        }
+    }
+    
     @Override
     public boolean evaluate(EvalContext ctx) {
         int actualCount = 0;

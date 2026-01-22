@@ -1,7 +1,8 @@
 package chess;
 
 import static chess.Types.*;
-import static chess.Bitboard.*;
+import chess.Types.Move;
+import chess.Types.MoveList;
 
 /**
  * Alpha-beta search with various pruning techniques.
@@ -27,6 +28,10 @@ public class Search {
     };
     
     private static final int HISTORY_MAX = 8000;
+    
+    // Safety limits to prevent hanging
+    private static final int MAX_SEARCH_TIME_MS = 300000; // 5 minutes max
+    private static final long MAX_NODES_SAFETY = 100000000; // 100M nodes safety limit
     
     // Search state
     private final TranspositionTable tt;
@@ -114,11 +119,12 @@ public class Search {
         
         startTime = System.currentTimeMillis();
         
-        // Time management
+        // Time management - always have a reasonable upper bound
         if (moveTime > 0) {
-            allocatedTime = moveTime;
+            allocatedTime = Math.min(moveTime, MAX_SEARCH_TIME_MS);
         } else {
-            allocatedTime = 1000000000; // Effectively infinite
+            // Even for depth-only searches, set a reasonable max time to prevent hangs
+            allocatedTime = MAX_SEARCH_TIME_MS;
         }
         
         tt.newSearch();
@@ -128,6 +134,7 @@ public class Search {
     
     private Move iterativeDeepening(Position pos) {
         Move bestMove = null;
+        Move lastValidatedMove = null; // Track last known valid move
         int bestScore = -SCORE_INFINITE;
         
         int alpha = -SCORE_INFINITE;
@@ -177,7 +184,18 @@ public class Search {
             // Get best move from TT
             TranspositionTable.TTEntry entry = tt.probe(pos.key());
             if (entry != null && entry.getBestMove() != null) {
-                bestMove = entry.getBestMove();
+                Move candidateMove = entry.getBestMove();
+                // CRITICAL: Validate the move is legal for this position
+                // This guards against TT collisions or stale entries
+                if (isMoveLegal(pos, candidateMove)) {
+                    bestMove = candidateMove;
+                    lastValidatedMove = bestMove;
+                } else {
+                    // TT returned invalid move - this indicates a TT collision or bug
+                    // Keep using the last validated move
+                    System.err.println("[Search] WARNING: TT returned illegal move " + 
+                        candidateMove.toUCI() + " at depth " + depth + ", using fallback");
+                }
             }
             
             infoDepth = depth;
@@ -196,7 +214,51 @@ public class Search {
             }
         }
         
+        // Final safety check - if we still don't have a valid move, pick first legal move
+        if (bestMove == null || !isMoveLegal(pos, bestMove)) {
+            bestMove = lastValidatedMove;
+            if (bestMove == null) {
+                // Last resort: return first legal move
+                MoveList legalMoves = new MoveList();
+                MoveGen.generateLegalMoves(pos, legalMoves);
+                if (legalMoves.size() > 0) {
+                    bestMove = legalMoves.get(0);
+                    System.err.println("[Search] WARNING: Falling back to first legal move: " + bestMove.toUCI());
+                }
+            }
+        }
+        
         return bestMove;
+    }
+    
+    /**
+     * Check if a move is legal for the given position.
+     * This is used to validate TT moves before returning them.
+     */
+    private boolean isMoveLegal(Position pos, Move move) {
+        if (move == null || move.isNull()) return false;
+        
+        // Check that there's a piece of the right color on the from square
+        int from = move.from();
+        int piece = pos.pieceOn(from);
+        if (piece == NO_PIECE) return false;
+        if (pieceColor(piece) != pos.sideToMove()) return false;
+        
+        // Generate all legal moves and check if this move is among them
+        MoveList legalMoves = new MoveList();
+        MoveGen.generateLegalMoves(pos, legalMoves);
+        
+        for (int i = 0; i < legalMoves.size(); i++) {
+            Move legal = legalMoves.get(i);
+            if (legal.from() == move.from() && legal.to() == move.to()) {
+                // For promotions, also check the promotion piece
+                if (move.type() == PROMOTION && legal.type() == PROMOTION) {
+                    if (move.promotionType() != legal.promotionType()) continue;
+                }
+                return true;
+            }
+        }
+        return false;
     }
     
     private int alphaBeta(Position pos, int depth, int alpha, int beta, boolean isPV, int ply) {
@@ -204,8 +266,8 @@ public class Search {
             return evaluator.evaluate(pos);
         }
         
-        // Check time periodically
-        if ((infoNodes & 2047) == 0) {
+        // Check time periodically (every 1024 nodes for responsiveness)
+        if ((infoNodes & 1023) == 0) {
             checkTime();
         }
         
@@ -227,8 +289,9 @@ public class Search {
             return quiescence(pos, alpha, beta, ply);
         }
         
-        // Check extension
-        if (inCheck && ply < 50 && depth < 10) {
+        // Check extension - more conservative to prevent search explosion
+        // Only extend when close to the leaves and not too deep in the tree
+        if (inCheck && ply < 32 && depth < 6 && depth > 0) {
             depth++;
         }
         
@@ -393,7 +456,7 @@ public class Search {
             return evaluator.evaluate(pos);
         }
         
-        if ((infoNodes & 2047) == 0) {
+        if ((infoNodes & 1023) == 0) {
             checkTime();
         }
         
@@ -592,6 +655,11 @@ public class Search {
         }
         
         if (maxNodes > 0 && infoNodes >= maxNodes) {
+            stopped = true;
+        }
+        
+        // Safety valve: stop if we've searched way too many nodes
+        if (infoNodes >= MAX_NODES_SAFETY) {
             stopped = true;
         }
     }

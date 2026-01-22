@@ -3,16 +3,29 @@
  * Connects to the engine server via HTTP
  */
 
-// Engine server configuration
-const ENGINE_URL = 'http://localhost:8765';
+// Engine server configuration - uses Config if available
+const ENGINE_URL = (typeof Config !== 'undefined' && Config.ENGINE_URL) 
+  ? Config.ENGINE_URL 
+  : 'http://localhost:8765';
 
 // Check if the engine server is available
 let serverAvailable = null;
+let lastServerCheck = 0;
+const SERVER_CHECK_INTERVAL = 5000; // Recheck every 5 seconds if previously failed
 
 async function checkEngineServer() {
-    if (serverAvailable !== null) {
-        return serverAvailable;
+    const now = Date.now();
+    
+    // If we know it's available, return true
+    // If we previously failed, recheck after interval
+    if (serverAvailable === true) {
+        return true;
     }
+    if (serverAvailable === false && (now - lastServerCheck) < SERVER_CHECK_INTERVAL) {
+        return false;
+    }
+    
+    lastServerCheck = now;
     
     try {
         const response = await fetch(`${ENGINE_URL}/health`, {
@@ -26,6 +39,12 @@ async function checkEngineServer() {
     }
     
     return serverAvailable;
+}
+
+// Reset server availability check (call this when you know server was restarted)
+function resetServerCheck() {
+    serverAvailable = null;
+    lastServerCheck = 0;
 }
 
 // Initialize the engine on the server
@@ -76,7 +95,7 @@ async function getCustomEvalConfig() {
 }
 
 // Search for a move
-async function searchWithEngine(fen, depth, timeMs) {
+async function searchWithEngine(fen, depth, timeMs, findWorst = false) {
     // Set the position
     await fetch(`${ENGINE_URL}/api/setFen`, {
         method: 'POST',
@@ -84,8 +103,9 @@ async function searchWithEngine(fen, depth, timeMs) {
         body: JSON.stringify({ fen })
     });
     
-    // Search for best move
-    const searchResponse = await fetch(`${ENGINE_URL}/api/search`, {
+    // Search for best or worst move
+    const endpoint = findWorst ? '/api/searchWorst' : '/api/search';
+    const searchResponse = await fetch(`${ENGINE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ depth, time: timeMs })
@@ -98,7 +118,7 @@ async function searchWithEngine(fen, depth, timeMs) {
     const info = await infoResponse.json();
     
     return {
-        move: searchResult.bestMove,
+        move: findWorst ? searchResult.worstMove : searchResult.bestMove,
         info
     };
 }
@@ -189,8 +209,10 @@ function createEngineBot(options = {}) {
         timeMs = 0,
         name = 'Chess Engine',
         description = 'Chess engine with bitboards, TT, and advanced search',
-        evaluator = 'turing',  // 'turing', 'material', 'custom', or 'rule'
-        customEvalConfig = null  // Custom eval configuration (only used if evaluator='custom' or 'rule')
+        evaluator = 'turing',  // 'turing', 'material', 'custom', 'rule', or 'preset'
+        customEvalConfig = null,  // Custom eval configuration (only used if evaluator='custom' or 'rule')
+        presetId = null,  // Preset ID to load (only used if evaluator='preset')
+        findWorst = false  // If true, finds the worst move instead of the best
     } = options;
 
     class EngineBot extends ChessBot {
@@ -200,8 +222,11 @@ function createEngineBot(options = {}) {
             this.timeMs = timeMs;
             this.evaluator = evaluator;
             this.customEvalConfig = customEvalConfig;
+            this.presetId = presetId;
+            this.findWorst = findWorst;
             this.initialized = false;
             this.evaluatorSet = false;
+            this.presetLoaded = false;
         }
 
         async getMove(game) {
@@ -219,9 +244,19 @@ function createEngineBot(options = {}) {
             
             // Set evaluator if not already set
             if (!this.evaluatorSet) {
-                await setEvaluator(this.evaluator);
-                if (this.evaluator === 'custom' && this.customEvalConfig) {
-                    await configureCustomEval(this.customEvalConfig);
+                // Handle preset evaluator - load preset and configure as rule eval
+                if (this.evaluator === 'preset' && this.presetId) {
+                    await setEvaluator('rule');
+                    const presetConfig = await this.loadPreset(this.presetId);
+                    if (presetConfig) {
+                        await configureCustomEval(presetConfig);
+                        console.log(`[EngineBot] Loaded preset: ${this.presetId}`);
+                    }
+                } else {
+                    await setEvaluator(this.evaluator);
+                    if (this.evaluator === 'custom' && this.customEvalConfig) {
+                        await configureCustomEval(this.customEvalConfig);
+                    }
                 }
                 this.evaluatorSet = true;
                 console.log(`[EngineBot] Using evaluator: ${this.evaluator}`);
@@ -231,10 +266,10 @@ function createEngineBot(options = {}) {
                 // Build FEN from game state
                 const fen = gameToFen(game);
                 
-                console.log(`[EngineBot] Searching FEN: ${fen} depth=${this.depth}`);
+                console.log(`[EngineBot] Searching FEN: ${fen} depth=${this.depth}${this.findWorst ? ' (worst)' : ''}`);
                 
                 // Search using the engine
-                const result = await searchWithEngine(fen, this.depth, this.timeMs);
+                const result = await searchWithEngine(fen, this.depth, this.timeMs, this.findWorst);
                 
                 if (!result.move) {
                     throw new Error(`Engine returned empty move for FEN: ${fen}`);
@@ -254,6 +289,27 @@ function createEngineBot(options = {}) {
                 this.initialized = false;
                 throw error;
             }
+        }
+        
+        // Load a preset configuration from EvalBuilder
+        async loadPreset(presetId) {
+            // Check if EvalBuilder is available
+            if (typeof EvalBuilder === 'undefined') {
+                console.error('[EngineBot] EvalBuilder not available');
+                return null;
+            }
+            
+            // Create a temporary EvalBuilder instance to get the preset
+            const builder = new EvalBuilder();
+            const presets = builder.createPresetsCatalog();
+            
+            if (!presets[presetId]) {
+                console.error(`[EngineBot] Preset not found: ${presetId}`);
+                return null;
+            }
+            
+            const preset = presets[presetId];
+            return preset.evaluator;
         }
     }
     
@@ -295,6 +351,70 @@ const CustomEvalBot = createEngineBot({
     evaluator: 'rule'
 });
 
+// Custom Eval Bot at depth 0 - for testing/debugging evaluation function
+const CustomEvalDepth0 = createEngineBot({
+    depth: 0,
+    timeMs: 0,
+    name: 'Custom Eval (Depth 0 - Debug)',
+    description: "Debug mode: Uses only the evaluation function, no search. Good for testing eval correctness.",
+    evaluator: 'rule'
+});
+
+// WorstBot - uses the engine but picks the worst move
+const WorstBot = createEngineBot({
+    depth: 4,  // Lower depth is fine for worst moves
+    timeMs: 0,
+    name: 'Worst Bot',
+    description: "Always plays the worst possible move. Uses engine search to find truly terrible moves!",
+    evaluator: 'turing',
+    findWorst: true
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// CLASSIC EVALUATION PRESET BOTS
+// These bots use the historic evaluation functions from the Eval Builder
+// ═══════════════════════════════════════════════════════════════════
+
+// Shannon (1950) - The foundational evaluation
+const ShannonBot = createEngineBot({
+    depth: 8,
+    timeMs: 0,
+    name: 'Shannon (1950)',
+    description: "Claude Shannon's foundational evaluation from 'Programming a Computer for Playing Chess'",
+    evaluator: 'preset',
+    presetId: 'shannon'
+});
+
+// SOMA (1960s) - Early practical evaluation
+const SOMABot = createEngineBot({
+    depth: 8,
+    timeMs: 0,
+    name: 'SOMA (1960s)',
+    description: "Early practical evaluation emphasizing center control and basic positional concepts",
+    evaluator: 'preset',
+    presetId: 'soma'
+});
+
+// Simplified (1990s) - Modern baseline with PSTs
+const SimplifiedBot = createEngineBot({
+    depth: 8,
+    timeMs: 0,
+    name: 'Simplified (1990s)',
+    description: "Tomasz Michniewski's hand-crafted baseline with piece-square tables",
+    evaluator: 'preset',
+    presetId: 'simplified'
+});
+
+// Fruit-Style (2005) - Revolutionary open-source approach
+const FruitBot = createEngineBot({
+    depth: 8,
+    timeMs: 0,
+    name: 'Fruit-Style (2005)',
+    description: "Fabien Letouzey's revolutionary evaluation with king safety and mobility",
+    evaluator: 'preset',
+    presetId: 'fruit'
+});
+
 // Register TuringBot first (other bots registered after RandomBot in index.html)
 if (typeof botRegistry !== 'undefined') {
     botRegistry.register('turingbot', TuringBot);
@@ -303,9 +423,18 @@ if (typeof botRegistry !== 'undefined') {
 // Function to register debug bots (called after RandomBot is registered)
 function registerDebugBots() {
     if (typeof botRegistry !== 'undefined') {
+        // Classic preset bots
+        botRegistry.register('shannon', ShannonBot);
+        botRegistry.register('soma', SOMABot);
+        botRegistry.register('simplified', SimplifiedBot);
+        botRegistry.register('fruit', FruitBot);
+        
+        // Utility bots
+        botRegistry.register('worst', WorstBot);
         botRegistry.register('debug-depth2', DebugDepth2);
         botRegistry.register('debug-depth12', DebugDepth12);
         botRegistry.register('custom-eval', CustomEvalBot);
+        botRegistry.register('custom-eval-d0', CustomEvalDepth0);
     }
 }
 
@@ -314,6 +443,11 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         createEngineBot,
         TuringBot,
+        ShannonBot,
+        SOMABot,
+        SimplifiedBot,
+        FruitBot,
+        WorstBot,
         DebugDepth2,
         DebugDepth12,
         CustomEvalBot,

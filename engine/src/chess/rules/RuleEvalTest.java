@@ -13,6 +13,9 @@ public class RuleEvalTest {
     public static void main(String[] args) {
         System.out.println("=== Rule-Based Evaluator Test ===\n");
         
+        // Initialize bitboard attack tables
+        Bitboard.init();
+        
         // Test 1: Create Turing eval from rules
         testTuringEval();
         
@@ -21,6 +24,9 @@ public class RuleEvalTest {
         
         // Test 3: Test distance-based rules
         testDistanceRules();
+        
+        // Test 4: Test new Easy features
+        testEasyFeatures();
         
         System.out.println("\n=== All Tests Complete ===");
     }
@@ -110,6 +116,56 @@ public class RuleEvalTest {
         System.out.println("Evaluator: " + eval.getName());
         System.out.println("Rules: " + eval.getRules().size());
         System.out.println("Starting position: " + eval.evaluate(pos) + " centipawns");
+        System.out.println();
+    }
+    
+    /**
+     * Test 4: Test new Easy features (pawn structure, rook files, development, etc.)
+     */
+    private static void testEasyFeatures() {
+        System.out.println("Test 4: Easy Features (Pawn Structure, Development, etc.)");
+        System.out.println("----------------------------------------------------------");
+        
+        RuleBasedEvaluator.Builder builder = new RuleBasedEvaluator.Builder();
+        builder.name("Easy Features Test");
+        
+        // Material base
+        builder.addRule(SimpleRuleBuilder.material("pawns", Types.PAWN, 100));
+        builder.addRule(SimpleRuleBuilder.material("knights", Types.KNIGHT, 320));
+        builder.addRule(SimpleRuleBuilder.material("bishops", Types.BISHOP, 330));
+        builder.addRule(SimpleRuleBuilder.material("rooks", Types.ROOK, 500));
+        builder.addRule(SimpleRuleBuilder.material("queens", Types.QUEEN, 900));
+        
+        // Pawn structure
+        builder.addRule(SimpleRuleBuilder.doubledPawns("doubled", -20));
+        builder.addRule(SimpleRuleBuilder.isolatedPawns("isolated", -15));
+        builder.addRule(SimpleRuleBuilder.connectedPawns("connected", 10));
+        builder.addRule(SimpleRuleBuilder.passedPawns("passed", 20));
+        
+        // Rook activity
+        builder.addRule(SimpleRuleBuilder.rookOnOpenFile("rook_open", 25));
+        builder.addRule(SimpleRuleBuilder.rookOnSemiOpenFile("rook_semi", 15));
+        
+        // Development & center
+        builder.addRule(SimpleRuleBuilder.development("dev", 15));
+        builder.addRule(SimpleRuleBuilder.centerControl("center", 10));
+        builder.addRule(SimpleRuleBuilder.centralKnight("central_knight", 20));
+        builder.addRule(SimpleRuleBuilder.fianchetto("fianchetto", 15));
+        
+        RuleBasedEvaluator eval = builder.build();
+        
+        Position pos = new Position();
+        
+        System.out.println("Evaluator: " + eval.getName());
+        System.out.println("Rules: " + eval.getRules().size());
+        System.out.println("Starting position: " + eval.evaluate(pos) + " centipawns");
+        System.out.println("  (Should be 0 - symmetrical position)");
+        System.out.println();
+        
+        // Test with e4 opening
+        pos.setFen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+        System.out.println("After 1.e4: " + eval.evaluate(pos) + " centipawns (from Black's view)");
+        System.out.println("  (Should be slightly negative - White has center control)");
         System.out.println();
     }
     

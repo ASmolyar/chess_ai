@@ -1,0 +1,24 @@
+{
+  "name": "chess-ai-arena",
+  "version": "1.0.0",
+  "description": "Chess AI Arena - Build and compete with custom evaluation functions",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev:server & npm run dev:engine",
+    "dev:server": "cd server && npm run dev",
+    "dev:engine": "cd engine && ./run-server.sh",
+    "build": "node scripts/build.js",
+    "start": "cd server && npm start",
+    "vercel-build": "node scripts/build.js"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

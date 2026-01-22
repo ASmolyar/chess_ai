@@ -1,6 +1,11 @@
 /**
  * Chess Eval Server
  * Backend for storing eval functions and calculating ELO ratings
+ * 
+ * Now with parallel batch evaluation:
+ * - 10 rounds × 4 games = 40 total games
+ * - Each round: 2 openings × 2 colors (perfectly balanced)
+ * - 4 games run in parallel per round
  */
 
 import express from 'express';
@@ -12,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { EloCalculator } from './elo.js';
 import { MatchRunner } from './matchRunner.js';
 import { liveBroadcast } from './liveBroadcast.js';
+import { getOpeningPairs } from './openingBook.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,6 +58,8 @@ db.exec(`
     result TEXT NOT NULL,
     moves_count INTEGER,
     pgn TEXT,
+    opening TEXT,
+    played_as TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (eval_id) REFERENCES evals(id)
   );
@@ -60,6 +68,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_evals_public ON evals(is_public);
   CREATE INDEX IF NOT EXISTS idx_matches_eval ON matches(eval_id);
 `);
+
+// Add missing columns if they don't exist (for existing databases)
+try {
+  db.exec(`ALTER TABLE matches ADD COLUMN opening TEXT`);
+} catch (e) { /* Column already exists */ }
+try {
+  db.exec(`ALTER TABLE matches ADD COLUMN played_as TEXT`);
+} catch (e) { /* Column already exists */ }
 
 // ELO calculator instance
 const eloCalculator = new EloCalculator();
@@ -253,7 +269,7 @@ app.post('/api/evals/:id/calculate-elo', async (req, res) => {
     
     res.json({ 
       success: true, 
-      message: 'ELO calculation started',
+      message: 'ELO calculation started (40 games in 10 parallel batches)',
       status_endpoint: `/api/evals/${id}/status`
     });
     
@@ -299,7 +315,7 @@ app.get('/api/evals/:id/status', (req, res) => {
 app.get('/api/evals/:id/matches', (req, res) => {
   try {
     const stmt = db.prepare(`
-      SELECT id, opponent_type, opponent_elo, result, moves_count, created_at
+      SELECT id, opponent_type, opponent_elo, result, moves_count, opening, played_as, created_at
       FROM matches 
       WHERE eval_id = ?
       ORDER BY created_at DESC
@@ -336,12 +352,16 @@ app.get('/api/stats', (req, res) => {
   }
 });
 
-// ============ ELO CALCULATION (Adaptive Opponent Selection) ============
+// ============ ELO CALCULATION (Parallel Batch with Opening Book) ============
 
 /**
- * ELO calculation using adaptive opponent selection
- * Plays 12 games against opponents at the current estimated ELO
- * After each game, recalculates ELO from all results and picks next opponent accordingly
+ * ELO calculation using parallel batch games
+ * 
+ * Structure:
+ * - 10 rounds of 4 parallel games each (40 games total)
+ * - Each round: 2 openings × 2 colors = perfectly balanced
+ * - Adaptive opponent selection based on current ELO estimate
+ * - Uses curated opening book for diverse positions
  */
 async function calculateEloForEval(evalId) {
   const evalData = db.prepare('SELECT * FROM evals WHERE id = ?').get(evalId);
@@ -351,114 +371,142 @@ async function calculateEloForEval(evalId) {
   
   const evalConfig = JSON.parse(evalData.eval_config);
   
+  console.log(`\n${'='.repeat(60)}`);
   console.log(`Starting ELO calculation for "${evalData.name}" (${evalId})`);
+  console.log(`10 rounds × 4 games = 40 total games (parallel execution)`);
+  console.log(`${'='.repeat(60)}\n`);
   
   // Broadcast calculation start
   liveBroadcast.calculationStatus({
     evalId: evalId,
     evalName: evalData.name,
     status: 'started',
-    message: 'ELO calculation started'
+    message: 'ELO calculation started (40 games in 10 parallel batches)'
   });
   
   // Parameters
-  const TOTAL_GAMES = 15;
+  const TOTAL_ROUNDS = 10;
+  const GAMES_PER_ROUND = 4;
+  const TOTAL_GAMES = TOTAL_ROUNDS * GAMES_PER_ROUND;
   const MIN_ELO = 600;
   const MAX_ELO = 2800;
-  const STARTING_ELO = 1400; // Initial estimate before any games
+  const STARTING_ELO = 1400;
   
   let currentEstimatedElo = STARTING_ELO;
   const results = [];
   
-  // Map ELO to Stockfish skill level (0-20)
-  function eloToSkill(elo) {
-    // Approximate mapping: 600 ELO = skill 0, 2800 ELO = skill 20
-    const skill = Math.round((elo - 600) / 110);
-    return Math.max(0, Math.min(20, skill));
-  }
+  // Get shuffled opening pairs for all rounds
+  const openingPairs = getOpeningPairs(TOTAL_ROUNDS);
   
-  // Calculate current stats from results
-  function getStats() {
-    let wins = 0, losses = 0, draws = 0;
-    for (const r of results) {
-      if (r.result === 'win') wins++;
-      else if (r.result === 'loss') losses++;
-      else draws++;
-    }
-    return { wins, losses, draws };
-  }
+  // Track overall stats
+  let totalWins = 0;
+  let totalLosses = 0;
+  let totalDraws = 0;
   
   matchRunner.startCalculation(evalId, TOTAL_GAMES);
   
   let stockfishAvailable = true;
   
   try {
-    for (let gameNum = 0; gameNum < TOTAL_GAMES && stockfishAvailable; gameNum++) {
-      // Pick opponent at current estimated ELO (with slight random variance for diversity)
-      const variance = Math.floor(Math.random() * 100) - 50; // ±50 ELO variance
+    for (let round = 0; round < TOTAL_ROUNDS && stockfishAvailable; round++) {
+      const openings = openingPairs[round];
+      
+      // Pick opponent at current estimated ELO (with slight variance)
+      const variance = Math.floor(Math.random() * 100) - 50;
       const opponentElo = Math.max(MIN_ELO, Math.min(MAX_ELO, currentEstimatedElo + variance));
       
-      const skill = eloToSkill(opponentElo);
-      const level = { skill, elo: opponentElo };
-      const playAsWhite = gameNum % 2 === 0;
-      const stats = getStats();
+      console.log(`\n[Round ${round + 1}/${TOTAL_ROUNDS}] Est. ELO: ${currentEstimatedElo}, vs SF ~${opponentElo}`);
+      console.log(`  Opening 1: ${openings.opening1.name}`);
+      console.log(`  Opening 2: ${openings.opening2.name}`);
       
-      // Broadcast progress with CURRENT estimated ELO
+      // Broadcast progress
       liveBroadcast.progress({
         evalId: evalId,
         evalName: evalData.name,
-        currentLevel: opponentElo,
+        round: round + 1,
+        totalRounds: TOTAL_ROUNDS,
         estimatedElo: currentEstimatedElo,
-        gameNumber: gameNum + 1,
-        totalGames: TOTAL_GAMES,
-        wins: stats.wins,
-        draws: stats.draws,
-        losses: stats.losses,
-        message: `Game ${gameNum + 1}/${TOTAL_GAMES} vs SF ${opponentElo} ELO`
+        opponentElo: opponentElo,
+        wins: totalWins,
+        draws: totalDraws,
+        losses: totalLosses,
+        message: `Round ${round + 1}/${TOTAL_ROUNDS}: 4 games vs SF ~${opponentElo} ELO`
       });
       
-      console.log(`[ELO Calc] Game ${gameNum + 1}: Est. ELO ${currentEstimatedElo}, playing vs ${opponentElo} (skill ${skill})`);
-      
       try {
-        const matchInfo = { 
-          evalId, 
+        // Run batch of 4 parallel games
+        const batchInfo = {
+          evalId,
           evalName: evalData.name,
-          currentEloEstimate: currentEstimatedElo,
-          wins: stats.wins,
-          draws: stats.draws,
-          losses: stats.losses
+          round: round + 1,
+          totalRounds: TOTAL_ROUNDS,
+          currentStats: {
+            wins: totalWins,
+            draws: totalDraws,
+            losses: totalLosses,
+          }
         };
-        const result = await matchRunner.playMatch(evalConfig, level, playAsWhite, matchInfo);
         
-        results.push({
-          opponentElo: opponentElo,
-          result: result.result,
-          movesCount: result.movesCount,
-          pgn: result.pgn
-        });
+        const batchResults = await matchRunner.runBatch(
+          evalConfig,
+          opponentElo,
+          openings.opening1,
+          openings.opening2,
+          batchInfo
+        );
         
-        // Record match in database
-        const matchId = uuidv4();
-        db.prepare(`
-          INSERT INTO matches (id, eval_id, opponent_type, opponent_elo, result, moves_count, pgn)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(matchId, evalId, `stockfish_skill_${skill}`, opponentElo, result.result, result.movesCount, result.pgn);
+        // Process results
+        let roundWins = 0, roundDraws = 0, roundLosses = 0;
         
-        matchRunner.incrementProgress(evalId);
+        for (const game of batchResults.games) {
+          results.push({
+            opponentElo: opponentElo,
+            result: game.result,
+            movesCount: game.movesCount,
+            opening: game.opening,
+            playAsWhite: game.playAsWhite,
+          });
+          
+          if (game.result === 'win') { roundWins++; totalWins++; }
+          else if (game.result === 'loss') { roundLosses++; totalLosses++; }
+          else { roundDraws++; totalDraws++; }
+          
+          // Record match in database
+          const matchId = uuidv4();
+          db.prepare(`
+            INSERT INTO matches (id, eval_id, opponent_type, opponent_elo, result, moves_count, pgn, opening, played_as)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            matchId, 
+            evalId, 
+            `stockfish_${opponentElo}`, 
+            opponentElo, 
+            game.result, 
+            game.movesCount, 
+            game.pgn || '',
+            game.opening,
+            game.playAsWhite ? 'white' : 'black'
+          );
+          
+          matchRunner.incrementProgress(evalId);
+        }
         
-        // Recalculate ELO from ALL results so far
+        // Recalculate ELO after batch
         const newCalc = eloCalculator.calculateFromResults(results);
         const previousElo = currentEstimatedElo;
         currentEstimatedElo = newCalc.elo || STARTING_ELO;
         
-        console.log(`  → ${result.result.toUpperCase()}! ELO: ${previousElo} → ${currentEstimatedElo}`);
+        console.log(`  Results: ${roundWins}W ${roundDraws}D ${roundLosses}L → ELO: ${previousElo} → ${currentEstimatedElo}`);
         
-      } catch (matchError) {
-        console.error(`Match error at ELO ${currentEstimatedElo}:`, matchError.message);
-        matchRunner.incrementProgress(evalId);
+      } catch (batchError) {
+        console.error(`Batch error at round ${round + 1}:`, batchError.message);
         
-        if (matchError.message.includes('Stockfish not found') || 
-            matchError.message.includes('Failed to start stockfish')) {
+        // Increment progress for failed games
+        for (let i = 0; i < GAMES_PER_ROUND; i++) {
+          matchRunner.incrementProgress(evalId);
+        }
+        
+        if (batchError.message.includes('Stockfish not found')) {
           console.error('Stockfish not available. ELO calculation cancelled.');
           stockfishAvailable = false;
           liveBroadcast.calculationStatus({
@@ -483,7 +531,11 @@ async function calculateEloForEval(evalId) {
         WHERE id = ?
       `).run(elo, confidence, results.length, wins, losses, draws, evalId);
       
-      console.log(`ELO calculation complete for "${evalData.name}": ${elo} (±${confidence})`);
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`ELO calculation complete for "${evalData.name}"`);
+      console.log(`Final ELO: ${elo} (${confidence})`);
+      console.log(`Record: ${wins}W ${draws}D ${losses}L (${results.length} games)`);
+      console.log(`${'='.repeat(60)}\n`);
       
       // Broadcast completion
       liveBroadcast.calculationStatus({
@@ -496,7 +548,7 @@ async function calculateEloForEval(evalId) {
         losses: losses,
         draws: draws,
         gamesPlayed: results.length,
-        message: `ELO calculation complete: ${elo} (±${confidence})`
+        message: `ELO calculation complete: ${elo} (${confidence})`
       });
     } else if (!stockfishAvailable) {
       console.log(`ELO calculation skipped for "${evalData.name}" - Stockfish not available.`);
@@ -514,6 +566,11 @@ const WS_PORT = 3002;
 
 app.listen(PORT, () => {
   console.log(`Chess Eval Server running on http://localhost:${PORT}`);
+  console.log('');
+  console.log('ELO Calculation: 10 rounds × 4 parallel games = 40 games');
+  console.log('  - Each round uses 2 openings, played as both white and black');
+  console.log('  - Uses curated opening book for position variety');
+  console.log('');
   console.log('Endpoints:');
   console.log('  GET  /api/evals          - List all public evals (leaderboard)');
   console.log('  POST /api/evals          - Submit a new eval');
@@ -523,8 +580,7 @@ app.listen(PORT, () => {
   
   // Start WebSocket server for live game broadcasting
   liveBroadcast.start(WS_PORT);
-  console.log(`Live game broadcast available at ws://localhost:${WS_PORT}`);
+  console.log(`\nLive game broadcast available at ws://localhost:${WS_PORT}`);
 });
 
 export default app;
-

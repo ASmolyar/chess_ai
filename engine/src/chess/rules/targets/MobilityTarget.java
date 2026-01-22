@@ -20,6 +20,14 @@ public class MobilityTarget implements Target {
         this.captureWeight = captureWeight;
     }
     
+    /**
+     * Constructor accepting string piece type name.
+     */
+    public MobilityTarget(String pieceTypeName, double captureWeight) {
+        this.pieceType = pieceTypeFromString(pieceTypeName);
+        this.captureWeight = captureWeight;
+    }
+    
     @Override
     public List<EvalContext> select(EvalContext ctx) {
         List<EvalContext> result = new ArrayList<>();

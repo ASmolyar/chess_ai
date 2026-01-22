@@ -31,6 +31,31 @@ public class PieceDistanceCondition implements Condition {
         this.distance = distance;
     }
     
+    /**
+     * Constructor accepting string parameters for JSON parsing.
+     */
+    public PieceDistanceCondition(String p1Type, String p1Color, String p2Type, String p2Color, 
+                                  String comparisonName, int distance) {
+        this.piece1Type = pieceTypeFromString(p1Type);
+        this.piece1Color = "opponent".equalsIgnoreCase(p1Color) ? 1 : 0;
+        this.piece2Type = pieceTypeFromString(p2Type);
+        this.piece2Color = "opponent".equalsIgnoreCase(p2Color) ? 1 : 0;
+        this.comparison = parseComparison(comparisonName);
+        this.distance = distance;
+    }
+    
+    private static Comparison parseComparison(String name) {
+        if (name == null) return Comparison.LESS_THAN;
+        switch (name.toLowerCase().trim()) {
+            case "less_than": case "lessthan": case "<": return Comparison.LESS_THAN;
+            case "less_equal": case "lessequal": case "<=": return Comparison.LESS_EQUAL;
+            case "greater_than": case "greaterthan": case ">": return Comparison.GREATER_THAN;
+            case "greater_equal": case "greaterequal": case ">=": return Comparison.GREATER_EQUAL;
+            case "exactly": case "equals": case "=": case "==": return Comparison.EXACTLY;
+            default: return Comparison.LESS_THAN;
+        }
+    }
+    
     @Override
     public boolean evaluate(EvalContext ctx) {
         int color1 = piece1Color == 0 ? ctx.color : opposite(ctx.color);

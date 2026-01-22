@@ -1,7 +1,7 @@
 package chess;
 
-import static chess.Types.*;
 import static chess.Bitboard.*;
+import static chess.Types.*;
 
 /**
  * Static utility class for position evaluation.
@@ -9,6 +9,7 @@ import static chess.Bitboard.*;
  * 
  * @deprecated Use Evaluator interface and specific implementations instead.
  */
+@Deprecated
 public class Eval {
     
     // Singleton TuringEval instance for static methods
@@ -29,6 +30,7 @@ public class Eval {
      * Evaluate position from the perspective of the side to move.
      * @deprecated Use Evaluator.evaluate() instead
      */
+    @Deprecated
     public static int evaluate(Position pos) {
         return turingEval.evaluate(pos);
     }
@@ -59,6 +61,7 @@ public class Eval {
     /**
      * @deprecated Use Evaluator.getPieceValue() instead
      */
+    @Deprecated
     public static int getPieceValue(int pt) {
         return PIECE_VALUES[pt];
     }

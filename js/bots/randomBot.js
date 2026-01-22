@@ -44,3 +44,5 @@ class RandomBot extends ChessBot {
 // Register the bot
 botRegistry.register('random', RandomBot);
 
+
+

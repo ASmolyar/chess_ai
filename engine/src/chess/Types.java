@@ -145,6 +145,57 @@ public class Types {
     }
     
     /**
+     * Convert piece type name to int constant.
+     * @param name Piece name: "pawn", "knight", "bishop", "rook", "queen", "king", or "any"
+     * @return Piece type constant, or NO_PIECE_TYPE if invalid
+     */
+    public static int pieceTypeFromString(String name) {
+        if (name == null) return NO_PIECE_TYPE;
+        switch (name.toLowerCase().trim()) {
+            case "pawn": case "p": return PAWN;
+            case "knight": case "n": return KNIGHT;
+            case "bishop": case "b": return BISHOP;
+            case "rook": case "r": return ROOK;
+            case "queen": case "q": return QUEEN;
+            case "king": case "k": return KING;
+            case "any": case "all": return NO_PIECE_TYPE; // Special: means all pieces
+            default: return NO_PIECE_TYPE;
+        }
+    }
+    
+    /**
+     * Convert color name to int constant.
+     * @param name Color name: "white", "black", "my", "opponent"
+     * @param perspective The side evaluating (for "my"/"opponent" resolution)
+     * @return Color constant
+     */
+    public static int colorFromString(String name, int perspective) {
+        if (name == null) return WHITE;
+        switch (name.toLowerCase().trim()) {
+            case "white": case "w": return WHITE;
+            case "black": case "b": return BLACK;
+            case "my": return perspective;
+            case "opponent": case "enemy": return opposite(perspective);
+            default: return WHITE;
+        }
+    }
+    
+    /**
+     * Convert piece type int to name string.
+     */
+    public static String pieceTypeName(int pieceType) {
+        switch (pieceType) {
+            case PAWN: return "pawn";
+            case KNIGHT: return "knight";
+            case BISHOP: return "bishop";
+            case ROOK: return "rook";
+            case QUEEN: return "queen";
+            case KING: return "king";
+            default: return "any";
+        }
+    }
+    
+    /**
      * Move representation - packed into a 16-bit short:
      * bits 0-5: from square
      * bits 6-11: to square
@@ -232,7 +283,7 @@ public class Types {
             sb.append((char) ('1' + rankOf(to())));
             
             if (type() == PROMOTION) {
-                sb.append(" nbrq".charAt(promotionType() - KNIGHT));
+                sb.append("nbrq".charAt(promotionType() - KNIGHT));
             }
             
             return sb.toString();

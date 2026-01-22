@@ -1087,10 +1087,24 @@ class ChessApp {
         const whiteCaptured = [...this.game.capturedPieces.white].sort(sortByValue);
         const blackCaptured = [...this.game.capturedPieces.black].sort(sortByValue);
         
-        // Calculate material difference
-        const whiteMaterial = whiteCaptured.reduce((sum, p) => sum + PIECE_VALUES[p.type], 0);
-        const blackMaterial = blackCaptured.reduce((sum, p) => sum + PIECE_VALUES[p.type], 0);
-        const diff = whiteMaterial - blackMaterial;
+        // Calculate material difference from actual board pieces (accounts for promotions)
+        let whiteBoardMaterial = 0;
+        let blackBoardMaterial = 0;
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const piece = this.game.getPiece(row, col);
+                if (piece) {
+                    const value = PIECE_VALUES[piece.type] || 0;
+                    if (piece.color === COLORS.WHITE) {
+                        whiteBoardMaterial += value;
+                    } else {
+                        blackBoardMaterial += value;
+                    }
+                }
+            }
+        }
+        // Positive diff means white has more material
+        const diff = whiteBoardMaterial - blackBoardMaterial;
         
         // Human captured pieces (what human has captured)
         // Opponent captured pieces (what opponent has captured)

@@ -219,6 +219,159 @@ public class SimpleRuleBuilder {
         );
     }
     
+    // ==================== NEW EASY FEATURES ====================
+    
+    /**
+     * Create a doubled pawns penalty rule.
+     */
+    public static Rule doubledPawns(String id, int penalty) {
+        return new Rule(
+            id,
+            "Doubled Pawns Penalty",
+            "pawn_structure",
+            AlwaysCondition.instance(),
+            new PawnStructureTarget(PawnStructureTarget.StructureType.DOUBLED),
+            new FixedValueCalculator(penalty),  // Should be negative
+            1.0
+        );
+    }
+    
+    /**
+     * Create an isolated pawns penalty rule.
+     */
+    public static Rule isolatedPawns(String id, int penalty) {
+        return new Rule(
+            id,
+            "Isolated Pawns Penalty",
+            "pawn_structure",
+            AlwaysCondition.instance(),
+            new PawnStructureTarget(PawnStructureTarget.StructureType.ISOLATED),
+            new FixedValueCalculator(penalty),  // Should be negative
+            1.0
+        );
+    }
+    
+    /**
+     * Create a connected pawns bonus rule.
+     */
+    public static Rule connectedPawns(String id, int bonus) {
+        return new Rule(
+            id,
+            "Connected Pawns Bonus",
+            "pawn_structure",
+            AlwaysCondition.instance(),
+            new PawnStructureTarget(PawnStructureTarget.StructureType.CONNECTED),
+            new FixedValueCalculator(bonus),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a passed pawn bonus rule (scales with advancement).
+     */
+    public static Rule passedPawns(String id, int valuePerRank) {
+        return new Rule(
+            id,
+            "Passed Pawn Bonus",
+            "pawn_structure",
+            AlwaysCondition.instance(),
+            new PassedPawnTarget(PassedPawnTarget.MeasureType.RANK),
+            new ScaledValueCalculator(valuePerRank, 1.0, 
+                                     ScaledValueCalculator.ScaleType.QUADRATIC),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a rook on open file bonus.
+     */
+    public static Rule rookOnOpenFile(String id, int bonus) {
+        return new Rule(
+            id,
+            "Rook on Open File",
+            "piece_activity",
+            AlwaysCondition.instance(),
+            new RookFileTarget(RookFileTarget.FileType.OPEN),
+            new FixedValueCalculator(bonus),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a rook on semi-open file bonus.
+     */
+    public static Rule rookOnSemiOpenFile(String id, int bonus) {
+        return new Rule(
+            id,
+            "Rook on Semi-Open File",
+            "piece_activity",
+            AlwaysCondition.instance(),
+            new RookFileTarget(RookFileTarget.FileType.SEMI_OPEN),
+            new FixedValueCalculator(bonus),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a center control bonus.
+     */
+    public static Rule centerControl(String id, int valuePerSquare) {
+        return new Rule(
+            id,
+            "Center Control",
+            "positional",
+            AlwaysCondition.instance(),
+            new CenterControlTarget(CenterControlTarget.CenterType.CORE),
+            new FixedValueCalculator(valuePerSquare),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a development bonus rule.
+     */
+    public static Rule development(String id, int valuePerPiece) {
+        return new Rule(
+            id,
+            "Piece Development",
+            "development",
+            AlwaysCondition.instance(),
+            new DevelopmentTarget(DevelopmentTarget.DevelopType.ALL_MINORS),
+            new FixedValueCalculator(valuePerPiece),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a fianchetto bonus rule.
+     */
+    public static Rule fianchetto(String id, int bonus) {
+        return new Rule(
+            id,
+            "Fianchetto Bonus",
+            "positional",
+            AlwaysCondition.instance(),
+            new DevelopmentTarget(DevelopmentTarget.DevelopType.FIANCHETTO),
+            new FixedValueCalculator(bonus),
+            1.0
+        );
+    }
+    
+    /**
+     * Create a central knight bonus rule.
+     */
+    public static Rule centralKnight(String id, int bonus) {
+        return new Rule(
+            id,
+            "Central Knight Bonus",
+            "piece_activity",
+            AlwaysCondition.instance(),
+            new DevelopmentTarget(DevelopmentTarget.DevelopType.CENTRAL_KNIGHTS),
+            new FixedValueCalculator(bonus),
+            1.0
+        );
+    }
+    
     private static String pieceTypeName(int pieceType) {
         switch (pieceType) {
             case PAWN: return "Pawn";

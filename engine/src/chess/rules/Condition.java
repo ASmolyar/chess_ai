@@ -12,3 +12,5 @@ public interface Condition {
     boolean evaluate(EvalContext ctx);
 }
 
+
+

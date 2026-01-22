@@ -10,13 +10,40 @@ import static chess.Bitboard.*;
 /**
  * Target that evaluates defended pieces.
  * Counts number of defenders for each piece of a given type.
+ * Can optionally filter by defender piece type.
  */
 public class DefenseTarget implements Target {
     private final int pieceType;
     private final int minDefenders;
+    private final int defenderType; // NO_PIECE_TYPE means any defender
     
     public DefenseTarget(int pieceType, int minDefenders) {
         this.pieceType = pieceType;
+        this.minDefenders = minDefenders;
+        this.defenderType = NO_PIECE_TYPE; // Any defender
+    }
+    
+    public DefenseTarget(int pieceType, int minDefenders, int defenderType) {
+        this.pieceType = pieceType;
+        this.minDefenders = minDefenders;
+        this.defenderType = defenderType;
+    }
+    
+    /**
+     * Constructor accepting string piece type names.
+     */
+    public DefenseTarget(String pieceTypeName, int minDefenders) {
+        this.pieceType = pieceTypeFromString(pieceTypeName);
+        this.minDefenders = minDefenders;
+        this.defenderType = NO_PIECE_TYPE;
+    }
+    
+    /**
+     * Constructor accepting string piece type names with defender type filter.
+     */
+    public DefenseTarget(String pieceTypeName, String defenderTypeName, int minDefenders) {
+        this.pieceType = pieceTypeFromString(pieceTypeName);
+        this.defenderType = pieceTypeFromString(defenderTypeName);
         this.minDefenders = minDefenders;
     }
     
@@ -46,6 +73,29 @@ public class DefenseTarget implements Target {
         long occupied = ctx.position.pieces();
         int us = ctx.color;
         
+        // If defenderType is specified, only count that type
+        if (defenderType != NO_PIECE_TYPE) {
+            switch (defenderType) {
+                case PAWN:
+                    return popcount(pawnAttacks(opposite(us), sq) & ctx.position.pieces(us, PAWN));
+                case KNIGHT:
+                    return popcount(knightAttacks(sq) & ctx.position.pieces(us, KNIGHT));
+                case BISHOP:
+                    return popcount(bishopAttacks(sq, occupied) & ctx.position.pieces(us, BISHOP));
+                case ROOK:
+                    return popcount(rookAttacks(sq, occupied) & ctx.position.pieces(us, ROOK));
+                case QUEEN:
+                    long queenDef = (bishopAttacks(sq, occupied) | rookAttacks(sq, occupied)) 
+                                  & ctx.position.pieces(us, QUEEN);
+                    return popcount(queenDef);
+                case KING:
+                    return popcount(kingAttacks(sq) & ctx.position.pieces(us, KING));
+                default:
+                    return 0;
+            }
+        }
+        
+        // Count all defender types
         // Pawn defenders
         defenders += popcount(pawnAttacks(opposite(us), sq) & ctx.position.pieces(us, PAWN));
         

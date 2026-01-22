@@ -3,7 +3,12 @@
  * Handles displaying and interacting with the public eval leaderboard
  */
 
-const EVAL_SERVER_URL = 'http://localhost:3001';
+// Use config if available, fallback to auto-detection
+const EVAL_SERVER_URL = (typeof Config !== 'undefined' && Config.EVAL_SERVER_URL !== undefined) 
+  ? Config.EVAL_SERVER_URL 
+  : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:3001' 
+    : '');
 
 class Leaderboard {
     constructor() {
@@ -425,6 +430,16 @@ class Leaderboard {
     }
 
     async playAgainst(evalId) {
+        // Check if engine is available
+        const engineUrl = (typeof Config !== 'undefined' && Config.ENGINE_URL) 
+            ? Config.ENGINE_URL 
+            : 'http://localhost:8765';
+        
+        if (!engineUrl) {
+            this.showNotification('Engine not available in production. Clone the repo and run locally to play against custom evals.', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch(`${EVAL_SERVER_URL}/api/evals/${evalId}`);
             if (!response.ok) throw new Error('Failed to fetch eval');
@@ -433,13 +448,13 @@ class Leaderboard {
             const evalConfig = data.eval.eval_config;
 
             // Configure the engine with this eval
-            await fetch('http://localhost:8765/api/configureRuleEval', {
+            await fetch(`${engineUrl}/api/configureRuleEval`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(evalConfig)
             });
 
-            await fetch('http://localhost:8765/api/setEvaluator', {
+            await fetch(`${engineUrl}/api/setEvaluator`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: 'rule' })
@@ -453,7 +468,7 @@ class Leaderboard {
 
         } catch (error) {
             console.error('Failed to set up game:', error);
-            this.showNotification('Failed to set up game. Make sure the engine server is running.', 'error');
+            this.showNotification('Failed to set up game. Make sure the engine server is running locally.', 'error');
         }
     }
 

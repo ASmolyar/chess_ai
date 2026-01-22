@@ -1,0 +1,25 @@
+# Dockerfile for Chess Engine Server (Java + Stockfish)
+FROM eclipse-temurin:21-jdk
+
+# Install Stockfish
+RUN apt-get update && apt-get install -y \
+    stockfish \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy engine source
+COPY engine/src ./src
+COPY engine/build.sh ./build.sh
+
+# Build the engine
+RUN mkdir -p out && \
+    javac -d out $(find src -name "*.java")
+
+# Expose port
+EXPOSE 8765
+
+# Run the engine server
+CMD ["java", "-cp", "out", "chess.EngineServer", "8765"]

@@ -24,6 +24,26 @@ public class ScaledValueCalculator implements ValueCalculator {
         this.scaleType = scaleType;
     }
     
+    /**
+     * Constructor accepting string scale type for JSON parsing.
+     */
+    public ScaledValueCalculator(int baseValue, double multiplier, String scaleTypeName) {
+        this.baseValue = baseValue;
+        this.multiplier = multiplier;
+        this.scaleType = parseScaleType(scaleTypeName);
+    }
+    
+    private static ScaleType parseScaleType(String name) {
+        if (name == null) return ScaleType.LINEAR;
+        switch (name.toLowerCase().trim()) {
+            case "linear": return ScaleType.LINEAR;
+            case "square_root": case "sqrt": return ScaleType.SQUARE_ROOT;
+            case "quadratic": return ScaleType.QUADRATIC;
+            case "exponential": case "exp": return ScaleType.EXPONENTIAL;
+            default: return ScaleType.LINEAR;
+        }
+    }
+    
     @Override
     public int calculate(EvalContext ctx) {
         double scaled = 0;

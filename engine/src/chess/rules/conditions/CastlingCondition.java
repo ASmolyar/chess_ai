@@ -30,6 +30,37 @@ public class CastlingCondition implements Condition {
         this.status = status;
     }
     
+    /**
+     * Constructor accepting string parameters for JSON parsing.
+     */
+    public CastlingCondition(String playerName, String statusName) {
+        this.player = parsePlayer(playerName);
+        this.status = parseStatus(statusName);
+    }
+    
+    private static Player parsePlayer(String name) {
+        if (name == null) return Player.MY;
+        switch (name.toLowerCase().trim()) {
+            case "my": return Player.MY;
+            case "opponent": case "enemy": return Player.OPPONENT;
+            default: return Player.MY;
+        }
+    }
+    
+    private static Status parseStatus(String name) {
+        if (name == null) return Status.HAS_CASTLED_EITHER;
+        switch (name.toLowerCase().trim()) {
+            case "has_castled_kingside": case "castled_kingside": case "kingside": return Status.HAS_CASTLED_KINGSIDE;
+            case "has_castled_queenside": case "castled_queenside": case "queenside": return Status.HAS_CASTLED_QUEENSIDE;
+            case "has_castled_either": case "castled": case "has_castled": return Status.HAS_CASTLED_EITHER;
+            case "has_not_castled": case "not_castled": return Status.HAS_NOT_CASTLED;
+            case "can_still_castle": case "can_castle": return Status.CAN_STILL_CASTLE;
+            case "cannot_castle": return Status.CANNOT_CASTLE;
+            case "lost_castling_rights": case "lost_rights": return Status.LOST_CASTLING_RIGHTS;
+            default: return Status.HAS_CASTLED_EITHER;
+        }
+    }
+    
     @Override
     public boolean evaluate(EvalContext ctx) {
         int color = player == Player.MY ? ctx.color : opposite(ctx.color);

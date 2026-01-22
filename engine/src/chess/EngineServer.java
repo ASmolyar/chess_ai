@@ -11,6 +11,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 /**
  * HTTP server that exposes the chess engine API.
@@ -36,6 +37,8 @@ public class EngineServer {
         server.createContext("/api/setStartPos", cors(this::handleSetStartPos));
         server.createContext("/api/makeMove", cors(this::handleMakeMove));
         server.createContext("/api/search", cors(this::handleSearch));
+        server.createContext("/api/searchFromFen", cors(this::handleSearchFromFen));
+        server.createContext("/api/searchWorst", cors(this::handleSearchWorst));
         server.createContext("/api/getInfo", cors(this::handleGetInfo));
         server.createContext("/api/getFen", cors(this::handleGetFen));
         server.createContext("/api/sideToMove", cors(this::handleSideToMove));
@@ -53,7 +56,8 @@ public class EngineServer {
         server.createContext("/api/getCustomEvalConfig", cors(this::handleGetCustomEvalConfig));
         server.createContext("/api/configureRuleEval", cors(this::handleConfigureRuleEval));
         
-        server.setExecutor(null);
+        // Use a thread pool to handle concurrent requests for parallel ELO calculation
+        server.setExecutor(Executors.newFixedThreadPool(8));
         server.start();
         
         System.out.println("Chess Engine Server started on port " + port);
@@ -140,6 +144,110 @@ public class EngineServer {
         
         String bestMove = engine.search(depth, time);
         sendJson(exchange, "{\"bestMove\":\"" + bestMove + "\"}");
+    }
+    
+    /**
+     * Stateless search endpoint - creates a fresh Engine instance per request.
+     * This allows parallel game execution without race conditions.
+     * Accepts: fen, depth, evalConfig (optional JSON for rule-based eval)
+     */
+    private void handleSearchFromFen(HttpExchange exchange) throws IOException {
+        try {
+            // Read raw body for full JSON access
+            String body;
+            try (InputStream is = exchange.getRequestBody()) {
+                body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            
+            // Parse parameters
+            String fen = extractJsonString(body, "fen");
+            int depth = 8; // default
+            try {
+                depth = extractJsonInt(body, "depth", 8);
+            } catch (Exception e) {}
+            
+            if (fen == null || fen.isEmpty()) {
+                sendJson(exchange, "{\"error\":\"Missing fen parameter\"}");
+                return;
+            }
+            
+            // Create a fresh engine instance for this request
+            Engine localEngine = new Engine();
+            localEngine.setFen(fen);
+            
+            // Check if there's an eval config to apply
+            String evalConfigJson = extractJsonObject(body, "evalConfig");
+            if (evalConfigJson != null && !evalConfigJson.isEmpty() && !evalConfigJson.equals("null")) {
+                String name = extractJsonString(evalConfigJson, "name");
+                String description = extractJsonString(evalConfigJson, "description");
+                String rulesJson = extractJsonArray(evalConfigJson, "rules");
+                String categoryWeightsJson = extractJsonObject(evalConfigJson, "categoryWeights");
+                
+                localEngine.configureRuleEval(name, description, rulesJson, categoryWeightsJson);
+            }
+            
+            // Perform the search
+            String bestMove = localEngine.search(depth, 0);
+            
+            sendJson(exchange, "{\"bestMove\":\"" + bestMove + "\"}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendJson(exchange, "{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}");
+        }
+    }
+    
+    private int extractJsonInt(String json, String key, int defaultValue) {
+        // Find the key
+        int keyIndex = json.indexOf("\"" + key + "\"");
+        if (keyIndex < 0) return defaultValue;
+        
+        int colonIndex = json.indexOf(":", keyIndex);
+        if (colonIndex < 0) return defaultValue;
+        
+        // Find the number value (skip whitespace)
+        int start = colonIndex + 1;
+        while (start < json.length() && Character.isWhitespace(json.charAt(start))) {
+            start++;
+        }
+        
+        // Read digits
+        StringBuilder num = new StringBuilder();
+        while (start < json.length()) {
+            char c = json.charAt(start);
+            if (Character.isDigit(c) || c == '-') {
+                num.append(c);
+                start++;
+            } else {
+                break;
+            }
+        }
+        
+        if (num.length() == 0) return defaultValue;
+        try {
+            return Integer.parseInt(num.toString());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+    
+    private void handleSearchWorst(HttpExchange exchange) throws IOException {
+        Map<String, String> params = parseBody(exchange);
+        int depth = 0;
+        int time = 0;
+        
+        if (params.containsKey("depth")) {
+            try {
+                depth = Integer.parseInt(params.get("depth"));
+            } catch (NumberFormatException e) {}
+        }
+        if (params.containsKey("time")) {
+            try {
+                time = Integer.parseInt(params.get("time"));
+            } catch (NumberFormatException e) {}
+        }
+        
+        String worstMove = engine.search(depth, time, true);
+        sendJson(exchange, "{\"worstMove\":\"" + worstMove + "\"}");
     }
     
     private void handleGetInfo(HttpExchange exchange) throws IOException {

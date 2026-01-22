@@ -32,6 +32,25 @@ public class PieceDistanceTarget implements Target {
         this.distanceType = distanceType;
     }
     
+    /**
+     * Constructor accepting string parameters for JSON parsing.
+     * @param p1Type Piece 1 type name (pawn, knight, etc.)
+     * @param p1Color "my" or "opponent"
+     * @param p2Type Piece 2 type name
+     * @param p2Color "my" or "opponent"
+     * @param distType "manhattan" or "chebyshev"
+     */
+    public PieceDistanceTarget(String p1Type, String p1Color,
+                               String p2Type, String p2Color,
+                               String distType) {
+        this.piece1Type = pieceTypeFromString(p1Type);
+        this.piece1Color = "opponent".equalsIgnoreCase(p1Color) ? 1 : 0;
+        this.piece2Type = pieceTypeFromString(p2Type);
+        this.piece2Color = "opponent".equalsIgnoreCase(p2Color) ? 1 : 0;
+        this.distanceType = "manhattan".equalsIgnoreCase(distType) 
+                          ? DistanceType.MANHATTAN : DistanceType.CHEBYSHEV;
+    }
+    
     @Override
     public List<EvalContext> select(EvalContext ctx) {
         List<EvalContext> result = new ArrayList<>();

@@ -17,6 +17,13 @@ public class SimpleMaterialTarget implements Target {
         this.pieceType = pieceType;
     }
     
+    /**
+     * Constructor accepting string piece type name.
+     */
+    public SimpleMaterialTarget(String pieceTypeName) {
+        this.pieceType = pieceTypeFromString(pieceTypeName);
+    }
+    
     @Override
     public List<EvalContext> select(EvalContext ctx) {
         List<EvalContext> result = new ArrayList<>();
