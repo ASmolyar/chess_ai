@@ -4,14 +4,553 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess AI Arena</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css?v=27">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
+    <!-- Intro Modal -->
+    <div class="intro-overlay" id="intro-overlay">
+        <div class="intro-modal">
+            <button class="intro-close" id="intro-close" aria-label="Close intro">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+            
+            <div class="intro-slides" id="intro-slides">
+                <!-- Slide 1: Welcome -->
+                <div class="intro-slide active" data-slide="0">
+                    <div class="slide-graphic welcome-graphic">
+                        <div class="chess-crown">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+                            </svg>
+                        </div>
+                        <div class="floating-pieces">
+                            <span class="float-piece p1">♔</span>
+                            <span class="float-piece p2">♛</span>
+                            <span class="float-piece p3">♞</span>
+                            <span class="float-piece p4">♜</span>
+                        </div>
+                    </div>
+                    <h2>Welcome to Chess AI Arena</h2>
+                    <p>Build your own chess evaluation function and watch it compete. No coding required — just drag, drop, and see your AI think.</p>
+                </div>
+
+                <!-- Slide 2: The Problem -->
+                <div class="intro-slide" data-slide="1">
+                    <div class="slide-graphic tree-graphic">
+                        <div class="search-tree">
+                            <div class="tree-node root">Start</div>
+                            <div class="tree-level l1">
+                                <div class="tree-node">20</div>
+                                <div class="tree-node">20</div>
+                                <div class="tree-node">20</div>
+                                <div class="tree-branch-label">×20 moves</div>
+                            </div>
+                            <div class="tree-level l2">
+                                <div class="tree-node small">×20</div>
+                                <div class="tree-node small">×20</div>
+                                <div class="tree-node small">×20</div>
+                                <div class="tree-branch-label">each...</div>
+                            </div>
+                            <div class="explosion-text">
+                                <span class="big-number">430 trillion</span>
+                                <span class="small-label">possible positions at depth 8</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>The Problem: Infinite Possibilities</h2>
+                    <p>Chess has ~20 moves per position. Looking 8 moves ahead means 20⁸ = <strong>430 trillion positions</strong>. Even the fastest computer can't check them all.</p>
+                </div>
+
+                <!-- Slide 3: Minimax -->
+                <div class="intro-slide" data-slide="2">
+                    <div class="slide-graphic minimax-graphic">
+                        <div class="minimax-tree">
+                            <div class="mm-node max-node">
+                                <span class="mm-label">MAX</span>
+                                <span class="mm-icon">▲</span>
+                            </div>
+                            <div class="mm-level">
+                                <div class="mm-node min-node">
+                                    <span class="mm-label">MIN</span>
+                                    <span class="mm-icon">▼</span>
+                                </div>
+                                <div class="mm-node min-node">
+                                    <span class="mm-label">MIN</span>
+                                    <span class="mm-icon">▼</span>
+                                </div>
+                            </div>
+                            <div class="mm-level bottom">
+                                <div class="mm-leaf">+3</div>
+                                <div class="mm-leaf">-1</div>
+                                <div class="mm-leaf">+5</div>
+                                <div class="mm-leaf">+2</div>
+                            </div>
+                            <div class="mm-arrows">
+                                <div class="arrow-up a1"></div>
+                                <div class="arrow-up a2"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>The Solution: Minimax</h2>
+                    <p>We assume both players play perfectly. You <strong>maximize</strong> your score, your opponent <strong>minimizes</strong> it. By thinking ahead, we find the best move.</p>
+                </div>
+
+                <!-- Slide 4: Alpha-Beta Pruning -->
+                <div class="intro-slide" data-slide="3">
+                    <div class="slide-graphic pruning-graphic">
+                        <div class="pruning-demo">
+                            <div class="prune-tree">
+                                <div class="prune-node explored">α ≥ 3</div>
+                                <div class="prune-level">
+                                    <div class="prune-branch good">
+                                        <div class="prune-node explored">3</div>
+                                        <div class="prune-leaves">
+                                            <span class="leaf ok">3</span>
+                                            <span class="leaf ok">7</span>
+                                        </div>
+                                    </div>
+                                    <div class="prune-branch bad">
+                                        <div class="prune-node pruned">
+                                            ≤2
+                                            <span class="scissors">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+                                                    <line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/>
+                                                    <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+                                                </svg>
+                                            </span>
+                                        </div>
+                                        <div class="prune-leaves">
+                                            <span class="leaf ok">2</span>
+                                            <span class="leaf cut">?</span>
+                                            <span class="leaf cut">?</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="prune-explanation">
+                                <span class="cut-label">Why check? Already worse!</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Alpha-Beta Pruning</h2>
+                    <p>If we find a move that's <strong>already worse</strong> than one we've seen, we can stop exploring it. This cuts the search tree in half — or better!</p>
+                    <div class="stat-pill">
+                        <span class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>
+                            </svg>
+                        </span>
+                        <span>430T → ~20 billion positions</span>
+                    </div>
+                </div>
+
+                <!-- Slide 5: Transposition Table -->
+                <div class="intro-slide" data-slide="4">
+                    <div class="slide-graphic tt-graphic">
+                        <div class="tt-demo compact">
+                            <div class="tt-row">
+                                <div class="tt-path path1">
+                                    <span class="move">e4 → e5 → Nf3</span>
+                                </div>
+                                <div class="tt-equals">=</div>
+                                <div class="tt-path path2">
+                                    <span class="move">Nf3 → e5 → e4</span>
+                                </div>
+                            </div>
+                            <div class="tt-result-row">
+                                <div class="tt-board-mini">♚♛♜</div>
+                                <div class="tt-label">Same position — cache it!</div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Transposition Table</h2>
+                    <p>Different move orders often reach the <strong>same position</strong>. We cache evaluations and never compute the same position twice.</p>
+                    <div class="stat-pill">
+                        <span class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                            </svg>
+                        </span>
+                        <span>~50% fewer evaluations</span>
+                    </div>
+                </div>
+
+                <!-- Slide 6: Null Move Pruning -->
+                <div class="intro-slide" data-slide="5">
+                    <div class="slide-graphic null-move-graphic">
+                        <div class="null-demo">
+                            <div class="null-question">
+                                <div class="null-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                    </svg>
+                                </div>
+                                <div class="null-text">What if I just... pass?</div>
+                            </div>
+                            <div class="null-result">
+                                <div class="null-box still-winning">
+                                    <span class="result-icon">✓</span>
+                                    <span>Still winning!</span>
+                                </div>
+                                <div class="null-conclusion">
+                                    <span>→ Skip deep search here</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Null Move Pruning</h2>
+                    <p>A clever trick: if <strong>doing nothing</strong> still leaves you winning, this position is probably good. No need to search every response deeply.</p>
+                    <div class="stat-pill">
+                        <span class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                        </span>
+                        <span>Prunes 80-90% of branches</span>
+                    </div>
+                </div>
+
+                <!-- Slide 7: Move Ordering & LMR -->
+                <div class="intro-slide" data-slide="6">
+                    <div class="slide-graphic ordering-graphic">
+                        <div class="ordering-demo">
+                            <div class="move-list-visual">
+                                <div class="move-item top-priority">
+                                    <span class="priority-badge">1st</span>
+                                    <span class="move-desc">Queen takes Queen</span>
+                                    <span class="move-tag capture">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                                        </svg>
+                                        Capture
+                                    </span>
+                                </div>
+                                <div class="move-item high-priority">
+                                    <span class="priority-badge">2nd</span>
+                                    <span class="move-desc">Previous best move</span>
+                                    <span class="move-tag killer">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/>
+                                        </svg>
+                                        Killer
+                                    </span>
+                                </div>
+                                <div class="move-item low-priority">
+                                    <span class="priority-badge">...</span>
+                                    <span class="move-desc">Quiet moves</span>
+                                    <span class="move-tag reduced">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>
+                                        </svg>
+                                        Reduced
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ordering-insight">
+                                <span class="insight-text">Good moves first = more cutoffs</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Smart Move Ordering</h2>
+                    <p>We try promising moves first: captures, checks, and "killer" moves from similar positions. Boring moves get <strong>reduced depth</strong>.</p>
+                    <div class="stat-pill">
+                        <span class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                            </svg>
+                        </span>
+                        <span>2-3x more cutoffs</span>
+                    </div>
+                </div>
+
+                <!-- Slide 8: Quiescence Search -->
+                <div class="intro-slide" data-slide="7">
+                    <div class="slide-graphic quiescence-graphic">
+                        <div class="quiescence-demo">
+                            <div class="q-scenario">
+                                <div class="q-board">
+                                    <span class="q-piece attacking">♕</span>
+                                    <span class="q-arrow">→</span>
+                                    <span class="q-piece target">♜</span>
+                                </div>
+                                <div class="q-label danger">Capture in progress!</div>
+                            </div>
+                            <div class="q-explanation">
+                                <div class="q-bad">
+                                    <span class="q-x">✗</span>
+                                    <span>Stop here: "I'm winning!"</span>
+                                </div>
+                                <div class="q-good">
+                                    <span class="q-check">✓</span>
+                                    <span>Keep searching captures</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Quiescence Search</h2>
+                    <p>Never stop mid-action! If there's a <strong>capture or check</strong> happening, we keep searching until the position is "quiet" — no pieces hanging.</p>
+                    <div class="stat-pill">
+                        <span class="stat-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </span>
+                        <span>Prevents horizon effect</span>
+                    </div>
+                </div>
+
+                <!-- Slide 9: The Result -->
+                <div class="intro-slide" data-slide="8">
+                    <div class="slide-graphic result-graphic">
+                        <div class="result-comparison">
+                            <div class="result-before">
+                                <div class="result-number before-num">430 trillion</div>
+                                <div class="result-label">Naive search</div>
+                            </div>
+                            <div class="result-arrow">
+                                <div class="arrow-body"></div>
+                                <div class="techniques-list">
+                                    <span>α-β</span>
+                                    <span>TT</span>
+                                    <span>NMP</span>
+                                    <span>LMR</span>
+                                </div>
+                            </div>
+                            <div class="result-after">
+                                <div class="result-number after-num">~200K</div>
+                                <div class="result-label">With optimizations</div>
+                            </div>
+                        </div>
+                        <div class="result-caption">
+                            <span class="reduction-factor">2 billion× reduction</span>
+                        </div>
+                    </div>
+                    <h2>From Trillions to Thousands</h2>
+                    <p>Combined, these techniques reduce <strong>430 trillion</strong> positions to just <strong>~200,000</strong> — searchable in under a second!</p>
+                </div>
+
+                <!-- Slide 10: The Evaluation Problem -->
+                <div class="intro-slide" data-slide="9">
+                    <div class="slide-graphic eval-problem-graphic">
+                        <div class="eval-problem-demo">
+                            <div class="depth-visual">
+                                <div class="depth-line">
+                                    <span class="depth-start">Now</span>
+                                    <span class="depth-dots">• • • • • • • •</span>
+                                    <span class="depth-end">Depth 8</span>
+                                </div>
+                                <div class="depth-question">
+                                    <span class="question-mark">?</span>
+                                    <span class="question-text">Who's winning here?</span>
+                                </div>
+                            </div>
+                            <div class="eval-insight">
+                                <p>We can't search to checkmate — that's 40+ moves away!</p>
+                                <p>We need a way to <strong>estimate</strong> who's ahead.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>The Missing Piece</h2>
+                    <p>Even with all these tricks, we can only search 8-10 moves deep. Games last 40+ moves! We need an <strong>evaluation function</strong> to estimate who's winning at any position.</p>
+                </div>
+
+                <!-- Slide 11: What is an Eval -->
+                <div class="intro-slide" data-slide="10">
+                    <div class="slide-graphic what-eval-graphic">
+                        <div class="what-eval-demo">
+                            <div class="eval-formula">
+                                <div class="formula-input">
+                                    <span class="formula-board">♔♕♗♘ vs ♚♛♝</span>
+                                </div>
+                                <div class="formula-arrow">→</div>
+                                <div class="formula-output">
+                                    <span class="formula-score">+2.5</span>
+                                    <span class="formula-label">White is better</span>
+                                </div>
+                            </div>
+                            <div class="eval-components">
+                                <span class="component">Material</span>
+                                <span class="plus">+</span>
+                                <span class="component">Position</span>
+                                <span class="plus">+</span>
+                                <span class="component">Safety</span>
+                                <span class="plus">+</span>
+                                <span class="component">...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>What is an Evaluation Function?</h2>
+                    <p>An eval takes a position and outputs a <strong>score</strong>. Positive = White is better, negative = Black is better. The higher the magnitude, the more one-sided.</p>
+                </div>
+
+                <!-- Slide 12: Turing's Eval (1948) -->
+                <div class="intro-slide" data-slide="11">
+                    <div class="slide-graphic history-graphic turing">
+                        <div class="history-card">
+                            <div class="history-year">1948</div>
+                            <div class="history-portrait photo">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/a/a1/Alan_Turing_Aged_16.jpg" alt="Alan Turing" />
+                            </div>
+                            <div class="history-name">Alan Turing</div>
+                            <div class="history-eval">
+                                <span class="eval-name">Turochamp</span>
+                            </div>
+                            <div class="history-features">
+                                <span class="feature">Material counting</span>
+                                <span class="feature">Mobility</span>
+                                <span class="feature">King safety</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>The First Chess Eval</h2>
+                    <p>Alan Turing wrote the first chess evaluation — <strong>by hand on paper!</strong> No computer could run it. He simulated each step manually. Simple but groundbreaking.</p>
+                </div>
+
+                <!-- Slide 13: Shannon's Eval (1950) -->
+                <div class="intro-slide" data-slide="12">
+                    <div class="slide-graphic history-graphic shannon">
+                        <div class="history-card">
+                            <div class="history-year">1950</div>
+                            <div class="history-portrait photo">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/9/99/ClaudeShannon_MFO3807.jpg" alt="Claude Shannon" />
+                            </div>
+                            <div class="history-name">Claude Shannon</div>
+                            <div class="history-eval">
+                                <span class="eval-name">Shannon's Framework</span>
+                            </div>
+                            <div class="history-features">
+                                <span class="feature">Piece values</span>
+                                <span class="feature">Pawn structure</span>
+                                <span class="feature">Doubled pawns penalty</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Shannon's Blueprint</h2>
+                    <p>The father of information theory designed a chess evaluation framework. His <strong>piece values</strong> (Queen=9, Rook=5, etc.) are still used today!</p>
+                </div>
+
+                <!-- Slide 14: Modern Evals -->
+                <div class="intro-slide" data-slide="13">
+                    <div class="slide-graphic modern-eval-graphic">
+                        <div class="modern-demo">
+                            <div class="eval-timeline">
+                                <div class="timeline-item">
+                                    <span class="timeline-year">1960s</span>
+                                    <span class="timeline-name">SOMA</span>
+                                    <span class="timeline-desc">Center control</span>
+                                </div>
+                                <div class="timeline-item">
+                                    <span class="timeline-year">1990s</span>
+                                    <span class="timeline-name">Simplified</span>
+                                    <span class="timeline-desc">PST tables</span>
+                                </div>
+                                <div class="timeline-item highlight">
+                                    <span class="timeline-year">2005</span>
+                                    <span class="timeline-name">Fruit</span>
+                                    <span class="timeline-desc">Outposts, mobility</span>
+                                </div>
+                                <div class="timeline-item">
+                                    <span class="timeline-year">2017</span>
+                                    <span class="timeline-name">NNUE</span>
+                                    <span class="timeline-desc">Neural networks</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Decades of Evolution</h2>
+                    <p>Each era brought new ideas: piece-square tables, knight outposts, passed pawns, king tropism. Modern engines use <strong>neural networks</strong> trained on millions of games.</p>
+                </div>
+
+                <!-- Slide 15: Build Your Own -->
+                <div class="intro-slide" data-slide="14">
+                    <div class="slide-graphic your-turn-graphic">
+                        <div class="eval-preview">
+                            <div class="eval-card-preview">
+                                <div class="card-row">
+                                    <span class="card-block condition">IF piece in center</span>
+                                    <span class="card-arrow">→</span>
+                                    <span class="card-block value">+30 pts</span>
+                                </div>
+                                <div class="card-row">
+                                    <span class="card-block condition">IF pawn passed</span>
+                                    <span class="card-arrow">→</span>
+                                    <span class="card-block value">+50 pts</span>
+                                </div>
+                                <div class="card-row">
+                                    <span class="card-block condition">IF king exposed</span>
+                                    <span class="card-arrow">→</span>
+                                    <span class="card-block value">-40 pts</span>
+                                </div>
+                            </div>
+                            <div class="your-bot">
+                                <span class="bot-label">Your AI</span>
+                                <div class="bot-icon">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Now Build Your Own!</h2>
+                    <p>The search is the same for everyone. The <strong>evaluation function</strong> is where you get creative! What matters in a chess position? You decide.</p>
+                    <button class="intro-cta" id="intro-start">
+                        <span>Open Eval Builder</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="intro-nav">
+                <div class="intro-dots" id="intro-dots">
+                    <button class="intro-dot active" data-slide="0"></button>
+                    <button class="intro-dot" data-slide="1"></button>
+                    <button class="intro-dot" data-slide="2"></button>
+                    <button class="intro-dot" data-slide="3"></button>
+                    <button class="intro-dot" data-slide="4"></button>
+                    <button class="intro-dot" data-slide="5"></button>
+                    <button class="intro-dot" data-slide="6"></button>
+                    <button class="intro-dot" data-slide="7"></button>
+                    <button class="intro-dot" data-slide="8"></button>
+                    <button class="intro-dot" data-slide="9"></button>
+                    <button class="intro-dot" data-slide="10"></button>
+                    <button class="intro-dot" data-slide="11"></button>
+                    <button class="intro-dot" data-slide="12"></button>
+                    <button class="intro-dot" data-slide="13"></button>
+                    <button class="intro-dot" data-slide="14"></button>
+                </div>
+                <div class="intro-buttons">
+                    <button class="intro-btn intro-prev" id="intro-prev" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        <span>Back</span>
+                    </button>
+                    <button class="intro-btn intro-next" id="intro-next">
+                        <span>Next</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="app-header">
         <div class="header-content">
@@ -128,14 +667,14 @@
                             <div class="option-group">
                                 <label>Play as</label>
                                 <div class="color-selector">
-                                    <button class="color-btn active" data-color="white" title="Play as White">
-                                        <span class="color-icon white-icon">♔</span>
+                                    <button class="color-btn white-btn active" data-color="white" title="Play as White">
+                                        <span class="color-piece white-king"></span>
                                     </button>
-                                    <button class="color-btn" data-color="random" title="Random Color">
-                                        <span class="color-icon random-icon">?</span>
+                                    <button class="color-btn random-btn" data-color="random" title="Random Color">
+                                        <span class="random-question">?</span>
                                     </button>
-                                    <button class="color-btn" data-color="black" title="Play as Black">
-                                        <span class="color-icon black-icon">♚</span>
+                                    <button class="color-btn black-btn" data-color="black" title="Play as Black">
+                                        <span class="color-piece black-king"></span>
                                     </button>
                                 </div>
                             </div>
@@ -143,11 +682,25 @@
                             <div class="option-group">
                                 <label>Opponent</label>
                                 <select id="bot-select">
-                                    <option value="turingbot" selected>TuringBot (Depth 8)</option>
-                                    <option value="custom-eval">Custom Eval (Depth 8)</option>
-                                    <option value="random">Random Bot</option>
-                                    <option value="debug-depth2">Debug (Depth 2)</option>
-                                    <option value="debug-depth12">Debug (Depth 12)</option>
+                                    <optgroup label="Classic Evaluations">
+                                        <option value="turingbot" selected>Turochamp (1948)</option>
+                                        <option value="shannon">Shannon (1950)</option>
+                                        <option value="soma">SOMA (1960s)</option>
+                                        <option value="simplified">Simplified (1990s)</option>
+                                        <option value="fruit">Fruit-Style (2005)</option>
+                                    </optgroup>
+                                    <optgroup label="Custom">
+                                        <option value="custom-eval">Custom Eval (Depth 8)</option>
+                                        <option value="custom-eval-d0">Custom Eval (Depth 0)</option>
+                                    </optgroup>
+                                    <optgroup label="Other">
+                                        <option value="random">Random Bot</option>
+                                        <option value="worst">Worst Bot</option>
+                                    </optgroup>
+                                    <optgroup label="Debug">
+                                        <option value="debug-depth2">Debug (Depth 2)</option>
+                                        <option value="debug-depth12">Debug (Depth 12)</option>
+                                    </optgroup>
                                 </select>
                             </div>
                         </div>
@@ -174,172 +727,174 @@
 
         <!-- Eval Builder Tab -->
         <div id="eval-builder-tab" class="tab-content">
+            <!-- Eval Header Bar -->
+            <div class="eval-header-bar">
+                <div class="eval-meta-group">
+                    <div class="eval-name-group">
+                        <i data-lucide="file-text" class="eval-icon"></i>
+                        <input type="text" id="eval-name-input" class="eval-name-input" 
+                               placeholder="My Custom Evaluator" value="My Custom Evaluator">
+                    </div>
+                    <div class="eval-author-group">
+                        <i data-lucide="user" class="eval-icon small"></i>
+                        <input type="text" id="eval-author-input" class="eval-author-input" 
+                               placeholder="Anonymous" value="">
+                    </div>
+                    <div class="eval-description-group">
+                        <i data-lucide="align-left" class="eval-icon small"></i>
+                        <input type="text" id="eval-description-input" class="eval-description-input" 
+                               placeholder="What makes this eval special?">
+                    </div>
+                </div>
+                <div class="eval-actions">
+                    <button id="save-eval-btn" class="action-btn" title="Save">
+                        <i data-lucide="save" class="btn-icon"></i>
+                        <span>Save</span>
+                    </button>
+                    <button id="load-eval-btn" class="action-btn templates-btn" title="Load classic presets or saved evaluators">
+                        <i data-lucide="library" class="btn-icon"></i>
+                        <span>Templates</span>
+                        <span class="templates-badge">6 presets</span>
+                    </button>
+                    <button id="export-json-btn" class="action-btn" title="Export JSON">
+                        <i data-lucide="download" class="btn-icon"></i>
+                        <span>Export</span>
+                    </button>
+                    <button id="publish-eval-btn" class="action-btn publish-btn" title="Publish to Leaderboard">
+                        <i data-lucide="trophy" class="btn-icon"></i>
+                        <span>Publish</span>
+                    </button>
+                </div>
+            </div>
+
             <div class="eval-builder-layout">
-                <!-- Left: Block Catalog -->
-                <div class="block-catalog">
-                    <div class="catalog-header">
-                        <h2>Building Blocks</h2>
-                        <p>Drag blocks or click to add</p>
+                <!-- Left Sidebar: Block Catalog -->
+                <div class="block-sidebar">
+                    <div class="sidebar-header">
+                        <h2>Blocks</h2>
                     </div>
                     
-                    <div class="catalog-section">
-                        <h3>
+                    <div class="sidebar-section">
+                        <div class="section-title">
                             <i data-lucide="filter" class="section-icon"></i>
-                            Conditions 
-                            <span class="section-hint">When to apply</span>
-                        </h3>
-                        <div id="condition-blocks" class="block-grid"></div>
+                            <span>Conditions</span>
+                        </div>
+                        <div id="condition-blocks" class="block-list"></div>
                     </div>
                     
-                    <div class="catalog-section">
-                        <h3>
+                    <div class="sidebar-section">
+                        <div class="section-title">
                             <i data-lucide="crosshair" class="section-icon"></i>
-                            Targets 
-                            <span class="section-hint">What to evaluate</span>
-                        </h3>
-                        <div id="target-blocks" class="block-grid"></div>
+                            <span>Targets</span>
+                        </div>
+                        <div id="target-blocks" class="block-list"></div>
                     </div>
                     
-                    <div class="catalog-section">
-                        <h3>
+                    <div class="sidebar-section">
+                        <div class="section-title">
                             <i data-lucide="calculator" class="section-icon"></i>
-                            Values 
-                            <span class="section-hint">Score amount</span>
-                        </h3>
-                        <div id="value-blocks" class="block-grid"></div>
+                            <span>Values</span>
+                        </div>
+                        <div id="value-blocks" class="block-list"></div>
                     </div>
                 </div>
 
-                <!-- Center: Rule Builder -->
-                <div class="rule-builder-area">
-                    <div class="builder-header">
-                        <input type="text" id="eval-name-input" class="eval-name-input" 
-                               placeholder="My Custom Evaluator" value="My Custom Evaluator">
-                        <div class="builder-actions">
-                            <button id="save-eval-btn" class="action-btn" title="Save">
-                                <i data-lucide="save" class="btn-icon"></i>
-                                Save
-                            </button>
-                            <button id="load-eval-btn" class="action-btn" title="Load">
-                                <i data-lucide="folder-open" class="btn-icon"></i>
-                                Load
-                            </button>
-                            <button id="export-json-btn" class="action-btn" title="Export JSON">
-                                <i data-lucide="download" class="btn-icon"></i>
-                                Export
-                            </button>
-                            <button id="publish-eval-btn" class="action-btn publish-btn" title="Publish to Leaderboard">
-                                <i data-lucide="trophy" class="btn-icon"></i>
-                                Publish
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="templates-bar">
-                        <span class="templates-label">Templates:</span>
-                        <button class="template-btn" data-template="simple">Simple</button>
-                        <button class="template-btn" data-template="turing">Turing</button>
-                        <button class="template-btn" data-template="aggressive">Aggressive</button>
-                    </div>
-
-                    <div class="rule-builder">
-                        <div class="builder-header">
-                        <h3>Rule Builder</h3>
-                            <p class="builder-hint">Build a rule by filling in each part of the sentence below</p>
-                        </div>
-                        
-                        <div class="rule-sentence-builder">
-                            <div class="sentence-step step-condition">
-                                <div class="step-number">1</div>
-                                <div class="step-content">
-                                    <div class="step-label">
-                                        <span class="step-title">Condition</span>
-                                        <span class="step-subtitle">When should this rule apply?</span>
-                                    </div>
-                                    <div id="rule-condition-slot" class="drop-slot condition-slot empty required">
-                                        <span class="slot-placeholder">
-                                            <i data-lucide="filter" class="placeholder-icon"></i>
-                                            <span class="placeholder-text">Click to choose a condition</span>
-                                            <span class="placeholder-hint">e.g., "Always", "During endgame", "When I have 2+ rooks"</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="sentence-connector">
-                                <div class="connector-line"></div>
-                                <div class="connector-word">then</div>
-                                <div class="connector-line"></div>
-                            </div>
-                            
-                            <div class="sentence-step step-target">
-                                <div class="step-number">2</div>
-                                <div class="step-content">
-                                    <div class="step-label">
-                                        <span class="step-title">Target</span>
-                                        <span class="step-subtitle">What do you want to evaluate?</span>
-                                    </div>
-                                    <div id="rule-target-slot" class="drop-slot target-slot empty required">
-                                        <span class="slot-placeholder">
-                                            <i data-lucide="target" class="placeholder-icon"></i>
-                                            <span class="placeholder-text">Click to choose what to count</span>
-                                            <span class="placeholder-hint">e.g., "Each pawn I have", "Knight mobility", "King safety"</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="sentence-connector">
-                                <div class="connector-line"></div>
-                                <div class="connector-word">award</div>
-                                <div class="connector-line"></div>
-                            </div>
-                            
-                            <div class="sentence-step step-value">
-                                <div class="step-number">3</div>
-                                <div class="step-content">
-                                    <div class="step-label">
-                                        <span class="step-title">Value</span>
-                                        <span class="step-subtitle">How many points?</span>
-                                    </div>
-                                    <div id="rule-value-slot" class="drop-slot value-slot empty required">
-                                        <span class="slot-placeholder">
-                                            <i data-lucide="calculator" class="placeholder-icon"></i>
-                                            <span class="placeholder-text">Click to set the score</span>
-                                            <span class="placeholder-hint">e.g., "+100 centipawns" or "f(n) = 10 × √n"</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="rule-name-section">
-                            <label for="rule-name-input">
-                                <i data-lucide="tag" class="label-icon"></i>
-                                Rule Name
-                            </label>
-                            <input type="text" id="rule-name-input" class="rule-name-input" 
-                                   placeholder="Give your rule a name (e.g., Pawn Material, Knight Outpost Bonus)">
-                        </div>
-                        
-                        <div class="builder-buttons">
-                            <button id="add-rule-btn" class="primary-btn">
-                                <i data-lucide="plus" class="btn-icon"></i>
-                                Add Rule
-                            </button>
-                            <button id="clear-builder-btn" class="secondary-btn">
+                <!-- Main Area -->
+                <div class="main-builder-area">
+                    <!-- Rule Builder Section -->
+                    <div class="rule-builder-section">
+                        <div class="section-header">
+                            <h3>Build New Rule</h3>
+                            <button id="clear-builder-btn" class="clear-btn">
                                 <i data-lucide="x" class="btn-icon"></i>
                                 Clear
                             </button>
                         </div>
+                        
+                        <!-- Horizontal Card Builder -->
+                        <div class="rule-cards-row">
+                            <div class="drop-slot condition-slot empty required" id="card-condition" data-type="condition">
+                                <div class="card-empty">
+                                    <i data-lucide="filter" class="card-icon"></i>
+                                    <span class="card-label">Condition</span>
+                                    <span class="card-hint">Click to choose</span>
+                                </div>
+                            </div>
+                            
+                            <div class="card-connector">
+                                <i data-lucide="arrow-right" class="connector-arrow"></i>
+                                <span class="connector-label">THEN</span>
+                            </div>
+                            
+                            <div class="drop-slot target-slot empty required" id="card-target" data-type="target">
+                                <div class="card-empty">
+                                    <i data-lucide="crosshair" class="card-icon"></i>
+                                    <span class="card-label">Target</span>
+                                    <span class="card-hint">Click to choose</span>
+                                </div>
+                            </div>
+                            
+                            <div class="card-connector">
+                                <i data-lucide="arrow-right" class="connector-arrow"></i>
+                                <span class="connector-label">AWARD</span>
+                            </div>
+                            
+                            <div class="drop-slot value-slot empty required" id="card-value" data-type="value">
+                                <div class="card-empty">
+                                    <i data-lucide="calculator" class="card-icon"></i>
+                                    <span class="card-label">Value</span>
+                                    <span class="card-hint">Click to set</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Rule Name and Add Button -->
+                        <div class="rule-finalize-row">
+                            <div class="rule-name-field">
+                                <label for="rule-name-input">
+                                    <i data-lucide="tag" class="label-icon"></i>
+                                    Rule Name
+                                </label>
+                                <input type="text" id="rule-name-input" class="rule-name-input" 
+                                       placeholder="e.g., Pawn Material, Knight Outpost Bonus">
+                            </div>
+                            <button id="add-rule-btn" class="add-rule-btn">
+                                <i data-lucide="plus" class="btn-icon"></i>
+                                Add Rule
+                            </button>
                         </div>
                     </div>
 
-                <!-- Right: Active Rules -->
-                    <div class="rules-list-container">
-                    <h3>Active Rules <span class="rules-count" id="rules-count"></span></h3>
+                    <!-- Rules List Section -->
+                    <div class="rules-list-section">
+                        <div class="section-header">
+                            <h3>Your Rules <span class="rules-count" id="rules-count">(0)</span></h3>
+                        </div>
                         <div id="rules-list" class="rules-list">
-                        <div class="empty-rules">No rules yet. Create one using the builder!</div>
+                            <div class="empty-rules">
+                                <i data-lucide="layers" class="empty-icon"></i>
+                                <p>No rules yet. Build one above!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Modal -->
+            <div class="edit-modal-overlay" id="edit-modal" style="display: none;">
+                <div class="edit-modal">
+                    <div class="modal-header">
+                        <h3 id="modal-title">Configure Block</h3>
+                        <button class="modal-close" id="modal-close-btn">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="modal-body">
+                        <!-- Block selection or parameter controls will be injected here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button class="modal-cancel" id="modal-cancel-btn">Cancel</button>
+                        <button class="modal-save" id="modal-save-btn">Save</button>
                     </div>
                 </div>
             </div>
@@ -482,7 +1037,7 @@
                 </div>
             </div>
 
-            <!-- Eval Details Modal -->
+                <!-- Eval Details Modal -->
             <div class="modal" id="eval-details-modal">
                 <div class="modal-overlay" onclick="leaderboard.hideEvalDetails()"></div>
                 <div class="modal-content eval-details-content">
@@ -528,13 +1083,50 @@
         </div>
     </div>
 
+    <!-- Eval Confirmation Modal (for save/publish) - must be outside tabs -->
+    <div class="modal" id="eval-confirm-modal">
+        <div class="modal-overlay" onclick="evalBuilder && evalBuilder.hideConfirmModal()"></div>
+        <div class="modal-content eval-confirm-content">
+            <button class="modal-close-btn" id="eval-confirm-close">&times;</button>
+            <div class="confirm-header">
+                <h2 id="confirm-title">Save Evaluator</h2>
+            </div>
+            
+            <div class="confirm-eval-info">
+                <div class="confirm-eval-name" id="confirm-eval-name">My Evaluator</div>
+                <div class="confirm-eval-stats">
+                    <span class="stat"><i data-lucide="list"></i> <span id="confirm-rule-count">0</span> rules</span>
+                    <span class="stat"><i data-lucide="toggle-left"></i> <span id="confirm-active-count">0</span> active</span>
+                </div>
+            </div>
+            
+            <div class="confirm-rules-summary">
+                <h4>Rules Summary</h4>
+                <div id="confirm-rules-list" class="confirm-rules-list"></div>
+            </div>
+            
+            <div class="confirm-author-section" id="confirm-author-section" style="display: none;">
+                <label for="confirm-author-input">Your Name (optional)</label>
+                <input type="text" id="confirm-author-input" placeholder="Anonymous" maxlength="50">
+            </div>
+            
+            <div class="confirm-actions">
+                <button class="secondary-btn" id="confirm-cancel-btn">Cancel</button>
+                <button class="primary-btn" id="confirm-ok-btn">
+                    <i data-lucide="check"></i> <span id="confirm-ok-text">Save</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
     <script src="js/chess.js"></script>
     <script src="js/bots/bot.js"></script>
     <script src="js/bots/engineBot.js"></script>
     <script src="js/bots/randomBot.js"></script>
     <script>registerDebugBots();</script>
-    <script src="js/evalBuilder.js"></script>
-    <script src="js/leaderboard.js"></script>
+    <script src="js/evalBuilder.js?v=33"></script>
+    <script src="js/leaderboard.js?v=2"></script>
     <script src="js/liveGameViewer.js"></script>
     <script src="js/app.js"></script>
     <script>
@@ -567,6 +1159,183 @@
                 }
             });
         });
+    </script>
+    
+    <!-- Block Picker Modal -->
+    <div id="block-picker-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content block-picker-content">
+            <div class="modal-header">
+                <h3 id="block-picker-title">Choose a Block</h3>
+                <button class="modal-close" id="block-picker-close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="block-picker-grid" class="block-picker-grid">
+                    <!-- Blocks will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intro Flow Controller -->
+    <script>
+    (function() {
+        const INTRO_STORAGE_KEY = 'chess_ai_intro_seen';
+        
+        class IntroController {
+            constructor() {
+                this.overlay = document.getElementById('intro-overlay');
+                this.slides = document.querySelectorAll('.intro-slide');
+                this.dots = document.querySelectorAll('.intro-dot');
+                this.prevBtn = document.getElementById('intro-prev');
+                this.nextBtn = document.getElementById('intro-next');
+                this.closeBtn = document.getElementById('intro-close');
+                this.startBtn = document.getElementById('intro-start');
+                
+                this.currentSlide = 0;
+                this.totalSlides = this.slides.length;
+                
+                this.init();
+            }
+            
+            init() {
+                // Check if user has seen intro before
+                if (localStorage.getItem(INTRO_STORAGE_KEY)) {
+                    this.hide();
+                    return;
+                }
+                
+                // Bind events
+                this.prevBtn.addEventListener('click', () => this.prev());
+                this.nextBtn.addEventListener('click', () => this.next());
+                this.closeBtn.addEventListener('click', () => this.close());
+                this.startBtn.addEventListener('click', () => this.startBuilding());
+                
+                // Dot navigation
+                this.dots.forEach((dot, index) => {
+                    dot.addEventListener('click', () => this.goTo(index));
+                });
+                
+                // Keyboard navigation
+                document.addEventListener('keydown', (e) => {
+                    if (!this.overlay || this.overlay.classList.contains('hidden')) return;
+                    
+                    if (e.key === 'ArrowRight' || e.key === ' ') {
+                        e.preventDefault();
+                        this.next();
+                    } else if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        this.prev();
+                    } else if (e.key === 'Escape') {
+                        this.close();
+                    }
+                });
+                
+                // Show first slide
+                this.updateUI();
+            }
+            
+            goTo(index) {
+                if (index < 0 || index >= this.totalSlides) return;
+                
+                // Mark previous slide
+                this.slides[this.currentSlide].classList.remove('active');
+                this.slides[this.currentSlide].classList.add('prev');
+                
+                // Update current
+                this.currentSlide = index;
+                
+                // Clear prev class from all and set active
+                setTimeout(() => {
+                    this.slides.forEach(s => s.classList.remove('prev'));
+                }, 50);
+                
+                this.slides[this.currentSlide].classList.add('active');
+                
+                this.updateUI();
+            }
+            
+            next() {
+                if (this.currentSlide < this.totalSlides - 1) {
+                    this.goTo(this.currentSlide + 1);
+                }
+            }
+            
+            prev() {
+                if (this.currentSlide > 0) {
+                    this.goTo(this.currentSlide - 1);
+                }
+            }
+            
+            updateUI() {
+                // Update dots
+                this.dots.forEach((dot, index) => {
+                    dot.classList.toggle('active', index === this.currentSlide);
+                });
+                
+                // Update buttons
+                this.prevBtn.disabled = this.currentSlide === 0;
+                
+                // Hide next button on last slide (CTA takes over)
+                if (this.currentSlide === this.totalSlides - 1) {
+                    this.nextBtn.style.display = 'none';
+                } else {
+                    this.nextBtn.style.display = 'flex';
+                }
+            }
+            
+            close() {
+                localStorage.setItem(INTRO_STORAGE_KEY, 'true');
+                this.hide();
+            }
+            
+            startBuilding() {
+                localStorage.setItem(INTRO_STORAGE_KEY, 'true');
+                this.hide();
+                
+                // Switch to eval builder tab
+                setTimeout(() => {
+                    const evalTab = document.querySelector('[data-tab="eval-builder-tab"]');
+                    if (evalTab) {
+                        evalTab.click();
+                    }
+                }, 300);
+            }
+            
+            hide() {
+                if (this.overlay) {
+                    this.overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        this.overlay.style.display = 'none';
+                    }, 400);
+                }
+            }
+            
+            show() {
+                if (this.overlay) {
+                    this.overlay.style.display = 'flex';
+                    this.overlay.classList.remove('hidden');
+                    this.currentSlide = 0;
+                    this.slides.forEach(s => s.classList.remove('active', 'prev'));
+                    this.slides[0].classList.add('active');
+                    this.updateUI();
+                }
+            }
+        }
+        
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.introController = new IntroController();
+        });
+        
+        // Expose a way to show intro again (for help menu etc)
+        window.showIntro = function() {
+            if (window.introController) {
+                window.introController.show();
+            }
+        };
+    })();
     </script>
 </body>
 </html>
