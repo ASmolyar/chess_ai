@@ -589,9 +589,11 @@
                     <span>Leaderboard</span>
                 </button>
             </nav>
-            <button class="help-btn" id="show-intro-btn" title="How it works">
-                <i data-lucide="help-circle" class="help-icon"></i>
-            </button>
+            <div class="header-right">
+                <button class="help-btn" id="show-intro-btn" title="How it works">
+                    <i data-lucide="help-circle" class="help-icon"></i>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -1138,6 +1140,14 @@
         </div>
     </div>
 
+    <script>
+      // Production backend services (Railway)
+      window.ENV_CONFIG = {
+        EVAL_SERVER_URL: 'https://chess-ai-backend-production.up.railway.app',
+        ENGINE_URL: 'https://chess-engine-production-0d47.up.railway.app',
+        WS_URL: 'wss://chess-ai-backend-production.up.railway.app'
+      };
+    </script>
     <script src="js/config.js"></script>
     <script src="js/chess.js"></script>
     <script src="js/bots/bot.js"></script>
@@ -1200,8 +1210,6 @@
     <!-- Intro Flow Controller -->
     <script>
     (function() {
-        const INTRO_STORAGE_KEY = 'chess_ai_intro_seen';
-        
         class IntroController {
             constructor() {
                 this.overlay = document.getElementById('intro-overlay');
@@ -1219,12 +1227,7 @@
             }
             
             init() {
-                // Check if user has seen intro before
-                if (localStorage.getItem(INTRO_STORAGE_KEY)) {
-                    this.hide();
-                    return;
-                }
-                
+                // Always show intro on page load
                 // Bind events
                 this.prevBtn.addEventListener('click', () => this.prev());
                 this.nextBtn.addEventListener('click', () => {
@@ -1314,12 +1317,10 @@
             }
             
             close() {
-                localStorage.setItem(INTRO_STORAGE_KEY, 'true');
                 this.hide();
             }
             
             startBuilding() {
-                localStorage.setItem(INTRO_STORAGE_KEY, 'true');
                 this.hide();
                 
                 // Switch to eval builder tab

@@ -1441,8 +1441,11 @@ body {
     height: 18px;
 }
 
-.header-spacer {
-    width: 180px;
+.header-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 180px;
 }
 
 /* Help Button */
