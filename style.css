@@ -1445,6 +1445,33 @@ body {
     width: 180px;
 }
 
+/* Help Button */
+.help-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    margin-left: auto;
+}
+
+.help-btn:hover {
+    background: rgba(123, 97, 255, 0.15);
+    border-color: rgba(123, 97, 255, 0.3);
+    color: #7b61ff;
+}
+
+.help-btn .help-icon {
+    width: 18px;
+    height: 18px;
+}
+
 .tab-content {
     display: none;
     width: 100%;

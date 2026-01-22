@@ -589,7 +589,9 @@
                     <span>Leaderboard</span>
                 </button>
             </nav>
-            <div class="header-spacer"></div>
+            <button class="help-btn" id="show-intro-btn" title="How it works">
+                <i data-lucide="help-circle" class="help-icon"></i>
+            </button>
         </div>
     </header>
 
@@ -1353,6 +1355,14 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.introController = new IntroController();
+            
+            // Help button to re-show intro
+            const helpBtn = document.getElementById('show-intro-btn');
+            if (helpBtn) {
+                helpBtn.addEventListener('click', () => {
+                    window.showIntro();
+                });
+            }
         });
         
         // Expose a way to show intro again (for help menu etc)
